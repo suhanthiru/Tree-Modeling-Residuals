@@ -30,5 +30,13 @@ def ingest():
     print(build())
 
 
+@app.command()
+def features(datasets: str = typer.Option("belgian,biodiv", help="Comma-separated datasets"),
+             workers: Optional[int] = typer.Option(None, help="Parallel worker processes")):
+    """Extract point-cloud and QSM geometry features."""
+    from treewm.geometry.build import build_features
+    print(build_features(tuple(datasets.split(",")), workers))
+
+
 if __name__ == "__main__":
     app()

@@ -10,7 +10,7 @@ app = typer.Typer(add_completion=False, no_args_is_help=True)
 
 @app.callback()
 def main():
-    """Tree World Model v1: LiDAR geometry, volume and biomass estimation."""
+    """Tree World Model: LiDAR geometry, volume and biomass estimation."""
 
 
 @app.command()
@@ -40,7 +40,7 @@ def features(datasets: str = typer.Option("belgian,biodiv", help="Comma-separate
 
 @app.command()
 def evaluate(experiments: str = typer.Option("belgian,ceda,biodiv", help="Comma-separated experiments"),
-             out: str = typer.Option("reports/v1", help="Report folder (metrics.csv, tables.md, figures)")):
+             out: str = typer.Option("experiments/v1-residuals", help="Report folder (metrics.csv, tables.md, figures)")):
     """Run the v1 cross-validated experiments and write the result tables."""
     import pandas as pd
 
@@ -64,7 +64,7 @@ def evaluate(experiments: str = typer.Option("belgian,ceda,biodiv", help="Comma-
 
 
 @app.command()
-def figures(out: str = typer.Option("reports/v1", help="Report folder written by `treewm evaluate`")):
+def figures(out: str = typer.Option("experiments/v1-residuals", help="Report folder written by `treewm evaluate`")):
     """Draw the explanatory report figures (example tree, geometry checks, ablation, per species)."""
     from treewm.eval.figures import build
     from treewm.paths import ROOT
@@ -73,7 +73,7 @@ def figures(out: str = typer.Option("reports/v1", help="Report folder written by
 
 
 @app.command()
-def train(metrics: str = typer.Option("reports/v1/metrics.csv", help="Metrics from `treewm evaluate`")):
+def train(metrics: str = typer.Option("experiments/v1-residuals/metrics.csv", help="Metrics from `treewm evaluate`")):
     """Fit the deployable model bundle on all Belgian trees (scan-only inputs)."""
     from treewm.deploy import train as tr
     from treewm.paths import ROOT

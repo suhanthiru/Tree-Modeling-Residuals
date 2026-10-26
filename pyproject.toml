@@ -1,7 +1,7 @@
 [project]
 name = "treewm"
 version = "0.1.0"
-description = "Tree World Model v1: LiDAR geometry, volume and biomass estimation with classical baselines and residual ML"
+description = "Tree World Model: LiDAR geometry, volume and biomass estimation with classical baselines and residual ML"
 requires-python = ">=3.12,<3.13"
 dependencies = [
   "numpy>=2.0",

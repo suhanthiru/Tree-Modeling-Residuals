@@ -1,6 +1,6 @@
 # Tree Modeling Residuals
 
-Tree World Model v1: estimate tree geometry, volume and biomass from LiDAR, and test whether
+Tree World Model: estimate tree geometry, volume and biomass from LiDAR, and test whether
 learned corrections (residuals) to classical allometric equations actually improve on them.
 Every claim is checked against destructively harvested trees, with whole sites or whole studies
 held out.
@@ -9,47 +9,22 @@ This is the first stage of a longer programme: forestry estimation first, then a
 world model (mass distribution, gravitational moments, eventually fall dynamics). See
 [Roadmap](#roadmap).
 
-## Results at a glance
+## Experiments
 
-The full write-up is [reports/v1/report.md](reports/v1/report.md). It covers the datasets, how
-trees are measured from scans, the models, the design decisions that brought the error down,
-and per-species and per-study results. Every model's numbers are in
-[reports/v1/tables.md](reports/v1/tables.md).
-
-**Belgian harvest, 65 trees, whole site held out, DBH and height taken from the scan.**
-Relative mean absolute error per tree (%):
-
-| Target | DBH allometry | QSM-based | Best residual model | 90 % interval coverage |
-|---|---|---|---|---|
-| Fresh mass | 14.8 | 32.3 (QSM × fold density) | 11.4 (D over A, ensemble) | 0.94 |
-| Dry AGB | 17.5 | 17.8 (QSM × fold density); published allometry 36.5 | 9.8 (E over A, ensemble) | 0.94 |
-| Total woody volume | 10.6 | 18.4 (raw QSM) | 7.7 (E over A, ensemble) | 0.91 |
-| Stem volume | 18.3 | 13.9 (raw QSM); 14.3 (point-cloud slices) | 11.6 (D, ridge) | 0.92 |
-
-**Global compilation, dry AGB, 373 trees, whole study held out (9 studies).**
-
-| Model | relMAE % | log RMSE | 90 % coverage |
+| Experiment | Question | Status | Headline |
 |---|---|---|---|
-| Published allometry (as reported) | 32.9 | 0.369 | 0.90 |
-| TLS-QSM (as reported) | 21.9 | 0.288 | 0.90 |
-| Published allometry + residual from inventory only | 31.7 | 0.357 | 0.89 |
-| Published allometry + residual with TLS-QSM terms | 17.3 | 0.216 | 0.91 |
+| [v1 · residuals](experiments/v1-residuals/) | Do learned corrections on top of allometry beat allometry on unseen sites? | done (`v1.0`) | Dry AGB error 17.5 % → 9.8 % on held-out Belgian sites; 32.9 % → 17.3 % on held-out studies worldwide |
+| v1.1 · rTwig | Does correcting QSM twig radii with rTwig make QSM volume a better estimate and a better residual feature? | planned | — |
 
-**BioDiv, QSM volume as a reconstructed target, whole plot held out.** Adding drone (ULS)
-crown geometry lowers log RMSE from 0.398 (DBH + height + genus) to 0.365.
+Each experiment has its own folder with a README (question, setup, results, how to reproduce),
+its config and its outputs. Conventions are in [experiments/README.md](experiments/README.md).
 
-What this shows:
-
-- Learned corrections help when they sit on top of DBH-only allometry and use scan-derived
-  geometry (crown shape, QSM structure). Re-weighting inventory variables alone does not help.
-- Height + leaf-type allometry fitted on other species transfers worse than DBH alone for
-  fresh mass. The four species differ too much in height-to-mass relations.
-- QSM volume overestimates harvested volume by about 25 %, by an amount that depends on species
-  (about 2x for one larch). Used raw it is worse than DBH allometry, but it is a strong residual feature.
-- Interval coverage holds near 90 % for the residual models on unseen sites. The DBH-only
-  fresh-mass baseline undercovers at 0.81, the distribution-shift failure the design doc predicted.
-- Caveat: about 25 models are scored on the same folds, so the best numbers are slightly
-  optimistic. The "E over A, ensemble" model is best or close to best on every target.
+**v1 in short.** Learned corrections help when they sit on top of DBH-only allometry and use
+scan-derived geometry (crown shape, QSM structure); re-weighting inventory variables alone does
+not. QSM volume overestimates harvested volume by about 25 %, species-dependently, so it is
+worse than DBH allometry used raw but a strong feature for the correction. Interval coverage
+holds near 90 % on unseen sites. Details: [experiments/v1-residuals](experiments/v1-residuals/),
+full write-up in [report.md](experiments/v1-residuals/report.md).
 
 ## Pipeline
 
@@ -62,7 +37,7 @@ download → ingest → features → evaluate → figures → train → predict
 | Download | `uv run treewm download belgian ceda biodiv` | Fetches raw data into `data/raw/<dataset>/` with size checks and resumable transfers. BioDiv TLS (20 GB) is opt-in with `--parts tls`. |
 | Ingest | `uv run treewm ingest` | Builds `trees`, `measurements` (long format, one unit and one definition per quantity, tagged measured / reconstructed / derived) and QSM cylinder tables as Parquet. |
 | Features | `uv run treewm features` | Point-cloud stem tracking and crown geometry, QSM structure metrics, BioDiv graph and drone (ULS) features. Runs in parallel. |
-| Evaluate | `uv run treewm evaluate` | Runs the three cross-validated experiments and writes `reports/v1/metrics.csv`, `tables.md` and the measured-vs-predicted figures. |
+| Evaluate | `uv run treewm evaluate` | Runs the three cross-validated v1 experiments and writes `metrics.csv`, `tables.md` and the measured-vs-predicted figures into `experiments/v1-residuals/`. |
 | Figures | `uv run treewm figures` | Draws the explanatory figures in the report (example tree, geometry checks, ablation, per species and per study). |
 | Train | `uv run treewm train` | Fits the deployable bundle on all Belgian trees with scan-only inputs. |
 | Predict | `uv run treewm predict tree.laz --species "Pinus sylvestris" [--qsm tree.mat]` | JSON with DBH, height, lean, crown offset, stem volume, baseline and corrected volume/mass with 90 % intervals, extrapolation flags, and (with a QSM) centre of mass and base moments. |
@@ -115,7 +90,8 @@ Duan's smearing factor for the back-transform and split-conformal 90 % interval 
 ## Repository layout
 
 ```
-configs/      datasets.yaml (download manifest), experiment_v1.yaml, allometry/published.yaml
+experiments/  one folder per experiment: README, config.yaml, results, figures
+configs/      datasets.yaml (download manifest), allometry/published.yaml
 treewm/io/    downloads, archive extraction, point cloud and TreeQSM readers
 treewm/data/  schema (quantity registry) and per-dataset ingest
 treewm/qsm/   cylinder metrics, centre of mass, base moments, GraphML → cylinders
@@ -123,7 +99,7 @@ treewm/geometry/  stem tracking, crown metrics, feature pipeline
 treewm/baselines/, treewm/models/  allometry, feature sets, residual learners
 treewm/eval/  CV schemes, nested CV engine, metrics, result tables, report figures
 treewm/experiments.py, treewm/deploy.py, treewm/cli.py
-reports/v1/   report.md (written report), tables.md, metrics, figures
+tests/        unit tests on synthetic trees
 data/, outputs/   local only (gitignored)
 ```
 
@@ -143,3 +119,8 @@ From the design document, after v1:
 
 Main limitation of v1: only 65 harvested trees from 4 European species. Results show what
 transfers between these sites, not a validated estimator for other regions or species.
+
+## License
+
+Code is MIT ([LICENSE](LICENSE)). The datasets are CC BY 4.0 and belong to their authors; cite
+them as listed under [Data](#data).

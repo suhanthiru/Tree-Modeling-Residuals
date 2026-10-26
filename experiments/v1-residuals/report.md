@@ -951,13 +951,16 @@ uv run treewm train
 | `figures` | The other figures in this report and [geometry_validation.csv](geometry_validation.csv) |
 | `train` | The deployable model bundle, kept locally and not in git |
 
-This report itself is written by hand and is not overwritten by either command.
+This report itself is written by hand and is not overwritten by either command. The numbers
+here were produced by the code at git tag `v1.0` (commit `d9abfbe`); the experiment
+definition is [config.yaml](config.yaml).
 
 **Files in this folder**
 
 | File | Contents |
 |---|---|
 | report.md | This report |
+| config.yaml | Experiment definition: targets, scenarios, CV schemes, learners |
 | tables.md | Every model × target × scenario × scheme, plus per-species and per-study errors |
 | metrics.csv | Machine-readable metrics for all 430 evaluated combinations |
 | by_group.csv | Per-species (Belgian, inventory scenario) and per-study errors |

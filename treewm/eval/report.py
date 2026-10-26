@@ -1,6 +1,6 @@
 """Write the v1 result tables (tables.md + CSV + observed-vs-predicted figures).
 
-The narrative report (reports/v1/report.md) is written by hand around these outputs and the
+The narrative report (experiments/v1-residuals/report.md) is written by hand around these outputs and the
 explanatory figures from `treewm figures`; `treewm evaluate` never overwrites it.
 """
 from __future__ import annotations

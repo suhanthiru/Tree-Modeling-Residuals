@@ -20,7 +20,7 @@ from treewm.baselines import allometry as al
 from treewm.data.ingest.ceda import CONIFER_GENERA
 from treewm.eval.engine import fit_calibrated
 from treewm.models.residual import TARGET
-from treewm.paths import OUTPUTS, ROOT
+from treewm.paths import OUTPUTS, V1
 
 BUNDLE = OUTPUTS / "model_bundle_v1.pkl"
 BASELINE = "allometry A (DBH)"
@@ -38,7 +38,7 @@ def _choose(metrics: pd.DataFrame, target: str, allowed_sets: set[str]) -> tuple
                         "validated": bool(best.relMAE_pct < base.relMAE_pct)}
 
 
-def train(metrics_csv: Path = ROOT / "reports" / "v1" / "metrics.csv", log=print) -> Path:
+def train(metrics_csv: Path = V1 / "metrics.csv", log=print) -> Path:
     from treewm import experiments as ex
     from treewm.geometry.build import load_features
     cfg = ex.config()

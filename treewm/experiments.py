@@ -15,13 +15,13 @@ from treewm.eval.metrics import summarize
 from treewm.eval.splits import group_kfold, leave_one_group_out, stratified_kfold
 from treewm.geometry.build import load_features
 from treewm.models.residual import TARGET, LogLinear, ResidualModel
-from treewm.paths import CONFIGS, LABELS, PROCESSED
+from treewm.paths import LABELS, PROCESSED, V1
 
 MASS_TARGETS = {"fresh_mass_total_kg", "agb_dry_kg"}
 
 
 def config() -> dict:
-    return yaml.safe_load((CONFIGS / "experiment_v1.yaml").read_text())
+    return yaml.safe_load((V1 / "config.yaml").read_text())
 
 
 def _tables():

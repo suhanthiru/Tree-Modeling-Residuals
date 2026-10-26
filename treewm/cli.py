@@ -23,5 +23,12 @@ def download(datasets: list[str] = typer.Argument(..., help="belgian, biodiv, ce
         dl(d, plist)
 
 
+@app.command()
+def ingest():
+    """Build trees / measurements / cylinder tables from data/raw/."""
+    from treewm.data.build import build
+    print(build())
+
+
 if __name__ == "__main__":
     app()

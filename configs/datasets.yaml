@@ -26,7 +26,12 @@ ceda:
   title: "Global dataset of co-incident TLS-derived and harvested tree biomass (Demol et al. 2025)"
   license: CC-BY-4.0
   record: https://catalogue.ceda.ac.uk/uuid/ddcad11fd71245d3b9d0e669b3fd9169/
-  files: {}   # resolved at download time from the CEDA archive listing
+  archive: https://data.ceda.ac.uk/neodc/tls/data/global/tls_tree_biomass/
+  files:
+    readme: {url: "https://dap.ceda.ac.uk/neodc/tls/data/global/tls_tree_biomass/00README_catalogue_and_licence.txt?download=1", name: 00README_catalogue_and_licence.txt, default: true}
+    xlsx:   {url: "https://dap.ceda.ac.uk/neodc/tls/data/global/tls_tree_biomass/demol_et_al_AGB_with_TLS.xlsx?download=1", name: demol_et_al_AGB_with_TLS.xlsx, default: true}
+    sheet1: {url: "https://dap.ceda.ac.uk/neodc/tls/data/global/tls_tree_biomass/Sheet1_demol_et_al_AGB_with_TLS.csv?download=1", name: Sheet1_demol_et_al_AGB_with_TLS.csv, default: true}
+    sheet2: {url: "https://dap.ceda.ac.uk/neodc/tls/data/global/tls_tree_biomass/Sheet2_demol_et_al_AGB_with_TLS.csv?download=1", name: Sheet2_demol_et_al_AGB_with_TLS.csv, default: true}
 
 treescope:
   title: "TreeScope mobile robotics + UAV forestry LiDAR"

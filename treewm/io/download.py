@@ -62,26 +62,6 @@ def _listing_links(client: httpx.Client, url: str) -> list[str]:
     return [urljoin(url, h) for h in hrefs if not h.startswith("..")]
 
 
-def resolve_ceda(client: httpx.Client) -> dict:
-    """Find the files of the CEDA collection via its public archive directory."""
-    page = client.get("https://catalogue.ceda.ac.uk/uuid/ddcad11fd71245d3b9d0e669b3fd9169/").text
-    dirs = sorted(set(re.findall(r"https://data\.ceda\.ac\.uk/[^\"'<> ]+", page)))
-    files: dict = {}
-    for d in dirs:
-        base = d.split("?")[0].rstrip("/") + "/"
-        try:
-            links = _listing_links(client, base)
-        except httpx.HTTPError:
-            continue
-        for link in links:
-            if re.search(r"\.(csv|xlsx|txt|pdf)$", link, re.I) and link.startswith("https://dap.ceda.ac.uk"):
-                name = link.rsplit("/", 1)[-1]
-                files[name] = {"url": link + "?download=1", "name": name, "size": None, "default": True}
-    if not files:
-        raise RuntimeError("Could not locate CEDA files automatically; download them into data/raw/ceda/ by hand.")
-    return files
-
-
 def resolve_treescope(client: httpx.Client, mirror: str, sites: list[str]) -> dict:
     files: dict = {}
     for site in sites:
@@ -115,9 +95,7 @@ def download(dataset: str, parts: list[str] | None = None, log=print) -> list[Pa
     got: list[Path] = []
     with httpx.Client(follow_redirects=True, timeout=TIMEOUT) as client:
         files = spec.get("files") or {}
-        if dataset == "ceda":
-            files = resolve_ceda(client)
-        elif dataset == "treescope":
+        if dataset == "treescope":
             files = resolve_treescope(client, spec["mirror"], spec["sites"])
         for key, f in files.items():
             if parts is not None and key not in parts:

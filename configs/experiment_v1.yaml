@@ -1,0 +1,27 @@
+# v1 experiment definition. All models predict log(target); see treewm/models/residual.py.
+interval_level: 0.90
+
+xgboost:
+  n_estimators: 200
+  max_depth: 2
+  learning_rate: 0.05
+  subsample: 0.8
+  colsample_bytree: 0.8
+  min_child_weight: 3
+  reg_lambda: 5.0
+
+belgian:
+  targets: [fresh_mass_total_kg, agb_dry_kg, volume_total_m3, volume_stem_m3]
+  scenarios: [inventory, scan]        # inventory: field DBH + felled height; scan: DBH + height from the point cloud
+  schemes: [leave_one_site_out, within_site_5fold]
+  learners: [ridge, xgb, gp, ensemble]
+
+ceda:
+  target: agb_dry_kg
+  scheme: leave_one_study_out
+  learners: [ridge, xgb, gp, ensemble]
+
+biodiv:
+  target: qsm_volume_total_m3        # reconstructed target (QSM volume), not a physical measurement
+  scheme: group_5fold_by_plot
+  learners: [ridge, xgb, ensemble]

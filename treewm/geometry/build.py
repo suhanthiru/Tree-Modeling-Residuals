@@ -31,6 +31,8 @@ def _biodiv_one(args):
     from treewm.geometry.features import cloud_features
     from treewm.io.pointcloud import read_points
     row = {"tree_id": tid}
+    uls_path = uls_path if isinstance(uls_path, str) else None      # missing paths come back as NaN
+    graph_path = graph_path if isinstance(graph_path, str) else None
     if uls_path:
         try:
             f = cloud_features(read_points(uls_path))

@@ -38,5 +38,25 @@ def features(datasets: str = typer.Option("belgian,biodiv", help="Comma-separate
     print(build_features(tuple(datasets.split(",")), workers))
 
 
+@app.command()
+def evaluate(experiments: str = typer.Option("belgian,ceda,biodiv", help="Comma-separated experiments"),
+             out: str = typer.Option("reports/v1", help="Report folder (metrics, figures, report.md)")):
+    """Run the v1 cross-validated experiments and write the report."""
+    import pandas as pd
+
+    from treewm import experiments as ex
+    from treewm.eval.report import write_report
+    from treewm.paths import OUTPUTS, ROOT
+    runners = {"belgian": ex.run_belgian, "ceda": ex.run_ceda, "biodiv": ex.run_biodiv}
+    P, R = [], []
+    for name in experiments.split(","):
+        p, r = runners[name]()
+        P.append(p); R.append(r)
+    preds, metrics = pd.concat(P, ignore_index=True), pd.concat(R, ignore_index=True)
+    OUTPUTS.mkdir(exist_ok=True)
+    preds.to_parquet(OUTPUTS / "predictions_v1.parquet", index=False)
+    print(write_report(preds, metrics, ROOT / out))
+
+
 if __name__ == "__main__":
     app()

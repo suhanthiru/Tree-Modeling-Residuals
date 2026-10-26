@@ -1,0 +1,19 @@
+# Published / reported allometric estimates used as fixed baselines.
+# Coefficients are NOT re-typed here; the values are taken as reported by the data owner,
+# so the provenance is the compilation itself.
+agb_allom_dry_kg:
+  source: "Demol et al. (2025) Global dataset of co-incident TLS-derived and harvested tree biomass, CEDA, doi via catalogue uuid ddcad11fd71245d3b9d0e669b3fd9169"
+  response: "dry above-ground biomass (kg)"
+  definition: "AGB from the allometric model chosen by each contributing study (column AGB_allom)"
+  applies_to: "all CEDA trees incl. the 65 Belgian Demol2021 trees"
+  calibration_range: "varies by contributing study; not reported per tree"
+
+agb_qsm_dry_kg:
+  source: "same compilation, column AGB_total_tree_QSM"
+  response: "dry above-ground biomass (kg)"
+  definition: "QSM volume x basic wood density, as computed by each contributing study"
+
+# Fitted-in-fold allometry (refit on every training fold, never on test trees):
+fitted:
+  A_dbh: "log y = a + b log D"
+  B_dbh_height: "log y = a + b log D + c log H + d [broadleaf]"

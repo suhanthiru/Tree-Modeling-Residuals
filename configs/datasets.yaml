@@ -1,0 +1,49 @@
+# Download manifest. Every file records where it came from and its expected size in bytes.
+# Parts with `default: true` are fetched by `treewm download <dataset>` when no --parts is given.
+belgian:
+  title: "QSMs, point cloud and harvest data from a destructive forest biomass experiment in Belgium (Demol et al. 2021)"
+  license: CC-BY-4.0
+  record: https://zenodo.org/records/4557401
+  files:
+    csv:    {url: "https://zenodo.org/records/4557401/files/Destructive_and_qsm_data_DEMOL.csv?download=1", name: Destructive_and_qsm_data_DEMOL.csv, size: 17021, default: true}
+    qsm:    {url: "https://zenodo.org/records/4557401/files/optimal_QSMs.zip?download=1", name: optimal_QSMs.zip, size: 15794485, default: true, extract: zip}
+    clouds: {url: "https://zenodo.org/records/4557401/files/pointclouds_clean.7z?download=1", name: pointclouds_clean.7z, size: 127561955, default: true, extract: 7z}
+    images: {url: "https://zenodo.org/records/4557401/files/images.7z?download=1", name: images.7z, size: 174212413, default: false, extract: 7z}
+
+biodiv:
+  title: "BioDiv-3DTrees: labelled single tree point clouds, QSMs and tree graphs (Griese et al. 2025)"
+  license: CC-BY-4.0
+  record: https://doi.org/10.25625/8PB1IF
+  files:
+    readme: {url: "https://data.goettingen-research-online.de/api/access/datafile/142312", name: README.md, size: 10838, default: true}
+    labels: {url: "https://data.goettingen-research-online.de/api/access/datafile/142314", name: labels.csv, size: 1109780, default: true}
+    graphs: {url: "https://data.goettingen-research-online.de/api/access/datafile/142310", name: Graphs.tar.zst, size: 1776293128, default: true, extract: tar.zst}
+    uls:    {url: "https://data.goettingen-research-online.de/api/access/datafile/142311", name: ULS.tar.zst, size: 652222562, default: true, extract: tar.zst}
+    tls:    {url: "https://data.goettingen-research-online.de/api/access/datafile/142309", name: TLS.tar.zst, size: 19941204645, default: false, extract: tar.zst}
+    qsm:    {url: "https://data.goettingen-research-online.de/api/access/datafile/142308", name: QSM.tar.zst, size: 108024254404, default: false, extract: tar.zst, note: "108 GB, exceeds free disk; not used in v1"}
+
+ceda:
+  title: "Global dataset of co-incident TLS-derived and harvested tree biomass (Demol et al. 2025)"
+  license: CC-BY-4.0
+  record: https://catalogue.ceda.ac.uk/uuid/ddcad11fd71245d3b9d0e669b3fd9169/
+  files: {}   # resolved at download time from the CEDA archive listing
+
+treescope:
+  title: "TreeScope mobile robotics + UAV forestry LiDAR"
+  record: https://treescope.org/data_overview/
+  mirror: https://tnl.treescope.org/Treescope/Treescope_v1.0_DIST/
+  sites: [UCM-0323, UCM-0523, UCM-0822, VAT-0723, VAT-1022, WSF-19]
+  files: {}   # ground_truth/ crawled at download time
+
+treescanpl10k:
+  title: "TreeScanPL10K"
+  record: https://zenodo.org/records/19127709
+  note: "94 GB of LAZ plots; deferred to v2. Only the tree summary CSV is fetchable here."
+  files:
+    summary: {url: "https://zenodo.org/records/19127709/files/individual_tree_summary.csv?download=1", name: individual_tree_summary.csv, size: 1079248, default: false}
+
+shivalik:
+  title: "Shivalik TLS/ALS dataset"
+  record: https://zenodo.org/records/15362444
+  note: "Zenodo record is access-restricted; request access before use."
+  files: {}

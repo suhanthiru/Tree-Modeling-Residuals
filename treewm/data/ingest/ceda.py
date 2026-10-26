@@ -19,7 +19,8 @@ CONIFER_GENERA = {"Pinus", "Picea", "Larix", "Pseudotsuga", "Abies", "Tsuga", "C
 
 
 def _clean_author(a: str) -> str:
-    return re.sub(r"[^A-Za-z0-9]", "", str(a))
+    # The source file stores "Kükenbrink" with a broken encoding (U+FFFD); transliterate it.
+    return re.sub(r"[^A-Za-z0-9]", "", str(a).replace("�", "u").replace("ü", "u"))
 
 
 def ingest(belgian_ids: set[str]) -> tuple[pd.DataFrame, pd.DataFrame]:

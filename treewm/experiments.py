@@ -78,6 +78,8 @@ def run_belgian(log=print) -> tuple[pd.DataFrame, pd.DataFrame]:
             df = base[base[target].notna() & base["log_dbh"].notna() & base["log_h"].notna()].copy()
             if target == "agb_dry_kg":  # compare every model on the trees that have the published estimate
                 df = df[df["agb_allom_dry_kg"].notna() & df["agb_qsm_dry_kg"].notna()]
+            if target == "volume_stem_m3":  # same for the raw point-cloud stem volume
+                df = df[df["pc_stem_volume_m3"].notna()]
             df[TARGET] = np.log(df[target])
             for scheme in c["schemes"]:
                 outer = leave_one_group_out(df["site_id"]) if scheme == "leave_one_site_out" else stratified_kfold(df["site_id"], 5)

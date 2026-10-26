@@ -48,14 +48,44 @@ def evaluate(experiments: str = typer.Option("belgian,ceda,biodiv", help="Comma-
     from treewm.eval.report import write_report
     from treewm.paths import OUTPUTS, ROOT
     runners = {"belgian": ex.run_belgian, "ceda": ex.run_ceda, "biodiv": ex.run_biodiv}
+    names = [n for n in experiments.split(",") if n]
     P, R = [], []
-    for name in experiments.split(","):
+    pred_path, met_path = OUTPUTS / "predictions_v1.parquet", ROOT / out / "metrics.csv"
+    if pred_path.exists() and met_path.exists():  # keep results of experiments not rerun
+        old_p, old_m = pd.read_parquet(pred_path), pd.read_csv(met_path)
+        P.append(old_p[~old_p.experiment.isin(names)]); R.append(old_m[~old_m.experiment.isin(names)])
+    for name in names:
         p, r = runners[name]()
         P.append(p); R.append(r)
     preds, metrics = pd.concat(P, ignore_index=True), pd.concat(R, ignore_index=True)
     OUTPUTS.mkdir(exist_ok=True)
-    preds.to_parquet(OUTPUTS / "predictions_v1.parquet", index=False)
+    preds.to_parquet(pred_path, index=False)
     print(write_report(preds, metrics, ROOT / out))
+
+
+@app.command()
+def train(metrics: str = typer.Option("reports/v1/metrics.csv", help="Metrics from `treewm evaluate`")):
+    """Fit the deployable model bundle on all Belgian trees (scan-only inputs)."""
+    from treewm.deploy import train as tr
+    from treewm.paths import ROOT
+    print(tr(ROOT / metrics))
+
+
+@app.command()
+def predict(cloud: str = typer.Argument(..., help="Single-tree point cloud (.laz/.las/.txt/.xyz/.pcd)"),
+            species: Optional[str] = typer.Option(None, help="Latin name, e.g. 'Pinus sylvestris'"),
+            leaf_type: Optional[str] = typer.Option(None, help="conifer or broadleaf (if species unknown)"),
+            qsm: Optional[str] = typer.Option(None, help="Optional TreeQSM .mat for the same tree"),
+            out: Optional[str] = typer.Option(None, help="Write JSON here instead of stdout")):
+    """Estimate geometry, volume and mass for one tree scan."""
+    from pathlib import Path
+
+    from treewm.deploy import predict as pr
+    from treewm.deploy import to_json
+    s = to_json(pr(cloud, species, leaf_type, qsm))
+    if out:
+        Path(out).write_text(s)
+    print(s)
 
 
 if __name__ == "__main__":

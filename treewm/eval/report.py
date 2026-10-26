@@ -57,7 +57,10 @@ def write_report(preds: pd.DataFrame, metrics: pd.DataFrame, out: Path, notes: d
     lines = ["# Tree World Model v1 — evaluation results", ""]
     lines += ["All numbers are out-of-sample (outer cross-validation folds). Intervals are split-conformal",
               "90 % intervals calibrated by an inner CV inside each training fold. relMAE and bias are",
-              "per-tree relative errors in %; total_bias compares summed predictions with summed observations.", ""]
+              "per-tree relative errors in %; total_bias compares summed predictions with summed observations.", "",
+              "Model selection caveat: around 25 models are scored on the same outer folds. The error of",
+              "whichever model looks best is therefore slightly optimistic; compare model families and",
+              "the consistency of a model across targets rather than single best numbers.", ""]
     if notes:
         lines += [f"- {k}: {v}" for k, v in notes.items()] + [""]
 
@@ -90,15 +93,16 @@ def write_report(preds: pd.DataFrame, metrics: pd.DataFrame, out: Path, notes: d
                       _md(d[d.target == target].sort_values("relMAE_pct")), ""]
         pb = preds[(preds.experiment == "belgian") & (preds.scheme == "leave_one_site_out") & (preds.scenario == "inventory")]
         for target in pb.target.unique():
-            for model in ["allometry B (DBH+H+leaf type)", "residual E / ensemble", "QSM x fold density"]:
+            for model in ["allometry A (DBH)", "residual E over A / ensemble", "QSM x fold density"]:
                 p = pb[(pb.target == target) & (pb.model == model)]
                 if not p.empty:
                     sp_rows.append(by_group(p, "species_latin").assign(experiment="belgian", target=target, model=model))
-        scatter_grid(pb, [("fresh mass: allometry B", {"target": "fresh_mass_total_kg", "model": "allometry B (DBH+H+leaf type)"}),
+        ps = preds[(preds.experiment == "belgian") & (preds.scheme == "leave_one_site_out") & (preds.scenario == "scan")]
+        scatter_grid(ps, [("fresh mass: DBH allometry", {"target": "fresh_mass_total_kg", "model": "allometry A (DBH)"}),
                           ("fresh mass: QSM x fold density", {"target": "fresh_mass_total_kg", "model": "QSM x fold density"}),
-                          ("fresh mass: residual E / ensemble", {"target": "fresh_mass_total_kg", "model": "residual E / ensemble"})],
+                          ("fresh mass: residual E over A / ensemble", {"target": "fresh_mass_total_kg", "model": "residual E over A / ensemble"})],
                      "species_latin", out / "figures" / "belgian_fresh_mass_loso.png")
-        lines += ["![Belgian fresh mass, leave-one-site-out](figures/belgian_fresh_mass_loso.png)", ""]
+        lines += ["![Belgian fresh mass, leave-one-site-out, scan-only inputs](figures/belgian_fresh_mass_loso.png)", ""]
 
     # ---------------- CEDA
     c = metrics[metrics.experiment == "ceda"]

@@ -49,6 +49,8 @@ class LogLinear:
 
     def fit(self, df: pd.DataFrame):
         y = df[TARGET].to_numpy() - self._off(df)
+        ok = np.isfinite(y)
+        df, y = df[ok], y[ok]
         if self.features:
             self.m = make_pipeline(SimpleImputer(strategy="median"), LinearRegression()).fit(df[self.features], y)
         else:

@@ -11,7 +11,10 @@ world model (mass distribution, gravitational moments, eventually fall dynamics)
 
 ## Results at a glance
 
-See [reports/v1/report.md](reports/v1/report.md) for every table and figure.
+The full write-up is [reports/v1/report.md](reports/v1/report.md). It covers the datasets, how
+trees are measured from scans, the models, the design decisions that brought the error down,
+and per-species and per-study results. Every model's numbers are in
+[reports/v1/tables.md](reports/v1/tables.md).
 
 **Belgian harvest, 65 trees, whole site held out, DBH and height taken from the scan.**
 Relative mean absolute error per tree (%):
@@ -51,7 +54,7 @@ What this shows:
 ## Pipeline
 
 ```
-download → ingest → features → evaluate → train → predict
+download → ingest → features → evaluate → figures → train → predict
 ```
 
 | Step | Command | What it does |
@@ -59,7 +62,8 @@ download → ingest → features → evaluate → train → predict
 | Download | `uv run treewm download belgian ceda biodiv` | Fetches raw data into `data/raw/<dataset>/` with size checks and resumable transfers. BioDiv TLS (20 GB) is opt-in with `--parts tls`. |
 | Ingest | `uv run treewm ingest` | Builds `trees`, `measurements` (long format, one unit and one definition per quantity, tagged measured / reconstructed / derived) and QSM cylinder tables as Parquet. |
 | Features | `uv run treewm features` | Point-cloud stem tracking and crown geometry, QSM structure metrics, BioDiv graph and drone (ULS) features. Runs in parallel. |
-| Evaluate | `uv run treewm evaluate` | Runs the three cross-validated experiments and writes `reports/v1/`. |
+| Evaluate | `uv run treewm evaluate` | Runs the three cross-validated experiments and writes `reports/v1/metrics.csv`, `tables.md` and the measured-vs-predicted figures. |
+| Figures | `uv run treewm figures` | Draws the explanatory figures in the report (example tree, geometry checks, ablation, per species and per study). |
 | Train | `uv run treewm train` | Fits the deployable bundle on all Belgian trees with scan-only inputs. |
 | Predict | `uv run treewm predict tree.laz --species "Pinus sylvestris" [--qsm tree.mat]` | JSON with DBH, height, lean, crown offset, stem volume, baseline and corrected volume/mass with 90 % intervals, extrapolation flags, and (with a QSM) centre of mass and base moments. |
 
@@ -117,9 +121,9 @@ treewm/data/  schema (quantity registry) and per-dataset ingest
 treewm/qsm/   cylinder metrics, centre of mass, base moments, GraphML → cylinders
 treewm/geometry/  stem tracking, crown metrics, feature pipeline
 treewm/baselines/, treewm/models/  allometry, feature sets, residual learners
-treewm/eval/  CV schemes, nested CV engine, metrics, report
+treewm/eval/  CV schemes, nested CV engine, metrics, result tables, report figures
 treewm/experiments.py, treewm/deploy.py, treewm/cli.py
-reports/v1/   committed evaluation output
+reports/v1/   report.md (written report), tables.md, metrics, figures
 data/, outputs/   local only (gitignored)
 ```
 

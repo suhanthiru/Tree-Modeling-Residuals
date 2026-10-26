@@ -1,16 +1,19 @@
-"""Write the v1 evaluation report (markdown + CSV + figures)."""
+"""Write the v1 result tables (tables.md + CSV + observed-vs-predicted figures).
+
+The narrative report (reports/v1/report.md) is written by hand around these outputs and the
+explanatory figures from `treewm figures`; `treewm evaluate` never overwrites it.
+"""
 from __future__ import annotations
 
 from pathlib import Path
 
-import matplotlib
+import numpy as np
+import pandas as pd
 
-matplotlib.use("Agg")
-import matplotlib.pyplot as plt  # noqa: E402
-import numpy as np  # noqa: E402
-import pandas as pd  # noqa: E402
+from treewm.eval import style as st
+from treewm.eval.metrics import by_group, summarize
 
-from treewm.eval.metrics import by_group  # noqa: E402
+plt = st.plt
 
 COLS = ["model", "n", "relMAE_pct", "bias_pct", "total_bias_pct", "log_RMSE", "coverage90", "interval_width_pct"]
 
@@ -23,38 +26,56 @@ def _md(df: pd.DataFrame, cols=COLS, digits=2) -> str:
     return head + "\n".join("| " + " | ".join(str(v) for v in r) + " |" for r in d.itertuples(index=False)) + "\n"
 
 
-def _scatter(ax, p: pd.DataFrame, title: str):
-    lim = [min(p.y.min(), p.yhat.min()) * 0.8, max(p.y.max(), p.yhat.max()) * 1.2]
-    ax.plot(lim, lim, color="0.6", lw=1)
-    for g, d in p.groupby(p.columns[p.columns.get_loc("group")]):
-        ax.errorbar(d.y, d.yhat, yerr=[d.yhat - d.lo, d.hi - d.yhat], fmt="o", ms=4, alpha=0.75, elinewidth=0.6, label=g)
-    ax.set_xscale("log"); ax.set_yscale("log"); ax.set_xlim(lim); ax.set_ylim(lim)
-    ax.set_xlabel("observed"); ax.set_ylabel("predicted")
-    ax.set_title(title, fontsize=9)
+def _scatter(ax, p: pd.DataFrame, title: str, unit: str, lim: list[float]):
+    from matplotlib.ticker import FuncFormatter, LogLocator
+    ax.plot(lim, lim, color=st.MUTED, lw=0.8, zorder=1)
+    ax.errorbar(p.y, p.yhat, yerr=[p.yhat - p.lo, p.hi - p.yhat], fmt="none", ecolor=st.BLUE_LIGHT,
+                elinewidth=0.8, alpha=0.7, zorder=2)
+    st.dots(ax, p.y, p.yhat, size=22)
+    ax.set_xscale("log")
+    ax.set_yscale("log")
+    ax.set_xlim(lim)
+    ax.set_ylim(lim)
+    ax.set_aspect("equal")
+    for axis in (ax.xaxis, ax.yaxis):
+        axis.set_major_locator(LogLocator(base=10, subs=(1.0, 3.0)))
+        axis.set_major_formatter(FuncFormatter(lambda v, _: f"{v:,.0f}" if v >= 1 else f"{v:g}"))
+        axis.set_minor_locator(LogLocator(base=10, subs=()))
+    ax.set_xlabel(f"measured ({unit})")
+    ax.set_ylabel(f"predicted ({unit})")
+    m = summarize(p.y, p.yhat, p.lo, p.hi)
+    st.titled(ax, title, f"mean error {m['relMAE_pct']:.1f} %, 90 % range covers {100 * m['coverage90']:.0f} % of trees")
 
 
-def scatter_grid(preds: pd.DataFrame, panels: list[tuple[str, dict]], group_col: str, path: Path):
-    fig, axes = plt.subplots(1, len(panels), figsize=(4.2 * len(panels), 4.2), squeeze=False)
-    for ax, (title, sel) in zip(axes[0], panels):
+def scatter_grid(preds: pd.DataFrame, panels: list[tuple[str, dict]], path: Path, unit: str = "kg"):
+    """Observed vs predicted on log axes, one panel per model; bars are the 90 % ranges."""
+    fig, axes = plt.subplots(1, len(panels), figsize=(4.4 * len(panels), 4.6), squeeze=False)
+    sel_frames = []
+    for _, sel in panels:
         p = preds
         for k, v in sel.items():
             p = p[p[k] == v]
+        sel_frames.append(p)
+    allp = pd.concat(sel_frames)
+    lim = [min(allp.y.min(), allp.lo.min()) * 0.8, max(allp.y.max(), allp.hi.max()) * 1.25]
+    for ax, (title, _), p in zip(axes[0], panels, sel_frames):
         if p.empty:
             ax.set_visible(False)
             continue
-        p = p.assign(group=p[group_col])
-        _scatter(ax, p, title)
-    axes[0][-1].legend(fontsize=7, loc="lower right")
-    fig.tight_layout()
-    fig.savefig(path, dpi=130)
+        _scatter(ax, p, title, unit, lim)
+    fig.tight_layout(w_pad=2.5)
+    fig.savefig(path)
     plt.close(fig)
 
 
 def write_report(preds: pd.DataFrame, metrics: pd.DataFrame, out: Path, notes: dict | None = None) -> Path:
+    st.apply()
     out.mkdir(parents=True, exist_ok=True)
     (out / "figures").mkdir(exist_ok=True)
     metrics.to_csv(out / "metrics.csv", index=False)
-    lines = ["# Tree World Model v1 — evaluation results", ""]
+    lines = ["# Tree World Model v1: full result tables", "",
+             "Every model, target, scenario and cross-validation scheme from `treewm evaluate`. The",
+             "narrative report that explains the data, methods and findings is [report.md](report.md).", ""]
     lines += ["All numbers are out-of-sample (outer cross-validation folds). Intervals are split-conformal",
               "90 % intervals calibrated by an inner CV inside each training fold. relMAE and bias are",
               "per-tree relative errors in %; total_bias compares summed predictions with summed observations.", "",
@@ -98,11 +119,11 @@ def write_report(preds: pd.DataFrame, metrics: pd.DataFrame, out: Path, notes: d
                 if not p.empty:
                     sp_rows.append(by_group(p, "species_latin").assign(experiment="belgian", target=target, model=model))
         ps = preds[(preds.experiment == "belgian") & (preds.scheme == "leave_one_site_out") & (preds.scenario == "scan")]
-        scatter_grid(ps, [("fresh mass: DBH allometry", {"target": "fresh_mass_total_kg", "model": "allometry A (DBH)"}),
-                          ("fresh mass: QSM x fold density", {"target": "fresh_mass_total_kg", "model": "QSM x fold density"}),
-                          ("fresh mass: residual E over A / ensemble", {"target": "fresh_mass_total_kg", "model": "residual E over A / ensemble"})],
-                     "species_latin", out / "figures" / "belgian_fresh_mass_loso.png")
-        lines += ["![Belgian fresh mass, leave-one-site-out, scan-only inputs](figures/belgian_fresh_mass_loso.png)", ""]
+        scatter_grid(ps, [("DBH formula (A)", {"target": "agb_dry_kg", "model": "allometry A (DBH)"}),
+                          ("QSM volume x learned density", {"target": "agb_dry_kg", "model": "QSM x fold density"}),
+                          ("DBH formula + correction (set E)", {"target": "agb_dry_kg", "model": "residual E over A / ensemble"})],
+                     out / "figures" / "belgian_agb_loso.png")
+        lines += ["![Belgian dry AGB, leave-one-site-out, scan-only inputs](figures/belgian_agb_loso.png)", ""]
 
     # ---------------- CEDA
     c = metrics[metrics.experiment == "ceda"]
@@ -116,10 +137,10 @@ def write_report(preds: pd.DataFrame, metrics: pd.DataFrame, out: Path, notes: d
         for model in ["published allometry (reported)", "TLS-QSM (reported)", "published + residual E / ensemble"]:
             p = pc[pc.model == model]
             sp_rows.append(by_group(p, "study_id").rename(columns={"study_id": "species_latin"}).assign(experiment="ceda (by study)", target="agb_dry_kg", model=model))
-        scatter_grid(pc, [("published allometry", {"model": "published allometry (reported)"}),
+        scatter_grid(pc, [("Published allometry", {"model": "published allometry (reported)"}),
                           ("TLS-QSM", {"model": "TLS-QSM (reported)"}),
-                          ("published + residual E / ensemble", {"model": "published + residual E / ensemble"})],
-                     "study_id", out / "figures" / "ceda_agb_loso.png")
+                          ("Published allometry + correction", {"model": "published + residual E / ensemble"})],
+                     out / "figures" / "ceda_agb_loso.png")
         lines += ["![CEDA AGB, leave-one-study-out](figures/ceda_agb_loso.png)", ""]
 
     # ---------------- BioDiv
@@ -134,6 +155,6 @@ def write_report(preds: pd.DataFrame, metrics: pd.DataFrame, out: Path, notes: d
         sp.to_csv(out / "by_group.csv", index=False)
         lines += ["## Errors by species / study", "",
                   _md(sp, ["experiment", "target", "model", "species_latin", "n", "relMAE_pct", "bias_pct", "coverage90"], 1), ""]
-    path = out / "report.md"
+    path = out / "tables.md"
     path.write_text("\n".join(lines), encoding="utf-8")
     return path

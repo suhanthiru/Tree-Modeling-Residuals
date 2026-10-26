@@ -1,0 +1,8 @@
+comparison,n,unit,bias,mean_abs_error,correlation
+"DBH, scan slices vs tape",64,cm,-0.97,0.99,0.995
+"DBH, QSM vs tape",65,cm,-0.97,1.09,0.985
+"Height, scan vs felled tree",65,m,0.0,0.52,0.961
+"Height, QSM vs felled tree",65,m,-0.22,0.66,0.952
+"Stem volume, scan slices vs harvest",64,%,13.71,17.18,0.953
+"Stem volume, QSM vs harvest",65,%,13.11,16.15,0.952
+"Total volume, QSM vs harvest",65,%,25.24,25.94,0.924

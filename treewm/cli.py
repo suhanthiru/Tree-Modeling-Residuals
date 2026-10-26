@@ -1,4 +1,4 @@
-"""treewm command line: download | ingest | features | train | evaluate | predict."""
+"""treewm command line: download | ingest | features | evaluate | figures | train | predict."""
 from __future__ import annotations
 
 from typing import Optional
@@ -40,8 +40,8 @@ def features(datasets: str = typer.Option("belgian,biodiv", help="Comma-separate
 
 @app.command()
 def evaluate(experiments: str = typer.Option("belgian,ceda,biodiv", help="Comma-separated experiments"),
-             out: str = typer.Option("reports/v1", help="Report folder (metrics, figures, report.md)")):
-    """Run the v1 cross-validated experiments and write the report."""
+             out: str = typer.Option("reports/v1", help="Report folder (metrics.csv, tables.md, figures)")):
+    """Run the v1 cross-validated experiments and write the result tables."""
     import pandas as pd
 
     from treewm import experiments as ex
@@ -61,6 +61,15 @@ def evaluate(experiments: str = typer.Option("belgian,ceda,biodiv", help="Comma-
     OUTPUTS.mkdir(exist_ok=True)
     preds.to_parquet(pred_path, index=False)
     print(write_report(preds, metrics, ROOT / out))
+
+
+@app.command()
+def figures(out: str = typer.Option("reports/v1", help="Report folder written by `treewm evaluate`")):
+    """Draw the explanatory report figures (example tree, geometry checks, ablation, per species)."""
+    from treewm.eval.figures import build
+    from treewm.paths import ROOT
+    for p in build(ROOT / out):
+        print(p)
 
 
 @app.command()

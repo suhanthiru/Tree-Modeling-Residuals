@@ -13,7 +13,40 @@ world model (mass distribution, gravitational moments, eventually fall dynamics)
 
 See [reports/v1/report.md](reports/v1/report.md) for every table and figure.
 
-RESULTS_SUMMARY
+**Belgian harvest, 65 trees, whole site held out, DBH and height taken from the scan.**
+Relative mean absolute error per tree (%):
+
+| Target | DBH allometry | QSM-based | Best residual model | 90 % interval coverage |
+|---|---|---|---|---|
+| Fresh mass | 14.8 | 32.3 (QSM × fold density) | 11.4 (D over A, ensemble) | 0.94 |
+| Dry AGB | 17.5 | 17.8 (QSM × fold density); published allometry 36.5 | 9.8 (E over A, ensemble) | 0.94 |
+| Total woody volume | 10.6 | 18.4 (raw QSM) | 7.7 (E over A, ensemble) | 0.91 |
+| Stem volume | 18.3 | 13.9 (raw QSM); 14.3 (point-cloud slices) | 11.6 (D, ridge) | 0.92 |
+
+**Global compilation, dry AGB, 373 trees, whole study held out (9 studies).**
+
+| Model | relMAE % | log RMSE | 90 % coverage |
+|---|---|---|---|
+| Published allometry (as reported) | 32.9 | 0.369 | 0.90 |
+| TLS-QSM (as reported) | 21.9 | 0.288 | 0.90 |
+| Published allometry + residual from inventory only | 31.7 | 0.357 | 0.89 |
+| Published allometry + residual with TLS-QSM terms | 17.3 | 0.216 | 0.91 |
+
+**BioDiv, QSM volume as a reconstructed target, whole plot held out.** Adding drone (ULS)
+crown geometry lowers log RMSE from 0.398 (DBH + height + genus) to 0.365.
+
+What this shows:
+
+- Learned corrections help when they sit on top of DBH-only allometry and use scan-derived
+  geometry (crown shape, QSM structure). Re-weighting inventory variables alone does not help.
+- Height + leaf-type allometry fitted on other species transfers worse than DBH alone for
+  fresh mass. The four species differ too much in height-to-mass relations.
+- QSM volume overestimates harvested volume by about 25 %, by an amount that depends on species
+  (about 2x for one larch). Used raw it is worse than DBH allometry, but it is a strong residual feature.
+- Interval coverage holds near 90 % for the residual models on unseen sites. The DBH-only
+  fresh-mass baseline undercovers at 0.81, the distribution-shift failure the design doc predicted.
+- Caveat: about 25 models are scored on the same folds, so the best numbers are slightly
+  optimistic. The "E over A, ensemble" model is best or close to best on every target.
 
 ## Pipeline
 

@@ -98,8 +98,12 @@ def predict(cloud: str, species: str | None = None, leaf_type: str | None = None
     d, h = float(row.dbh_used_cm.iloc[0]), float(row.h_used_m.iloc[0])
 
     flags = []
+    has_dbh = np.isfinite(d)
     rng = bundle["ranges"].get(lt)
-    if rng and not (rng["dbh_cm"][0] <= d <= rng["dbh_cm"][1]):
+    if not has_dbh:
+        flags.append("no DBH: the lower stem was not observed" + (" and the QSM gave none" if qsm else "")
+                     + "; volume and mass are not estimated")
+    if has_dbh and rng and not (rng["dbh_cm"][0] <= d <= rng["dbh_cm"][1]):
         flags.append(f"DBH {d:.1f} cm outside training range {rng['dbh_cm']} for {lt}")
     if rng and not (rng["height_m"][0] <= h <= rng["height_m"][1]):
         flags.append(f"height {h:.1f} m outside training range {rng['height_m']} for {lt}")
@@ -109,8 +113,8 @@ def predict(cloud: str, species: str | None = None, leaf_type: str | None = None
         flags.append("lower stem poorly visible; DBH and lean are unreliable")
     if feats.get("pc_crown_completeness", 1) < 0.6:
         flags.append("crown incompletely observed")
-    if not np.isfinite(feats.get("pc_dbh_cm", np.nan)):
-        flags.append("DBH slice fit failed" + ("; using QSM DBH" if qsm else ""))
+    if has_dbh and not np.isfinite(feats.get("pc_dbh_cm", np.nan)):
+        flags.append("DBH slice fit failed; using QSM DBH")
 
     def run(e):
         lp = float(e["model"].predict_log(row)[0])
@@ -120,6 +124,9 @@ def predict(cloud: str, species: str | None = None, leaf_type: str | None = None
     estimates = {}
     key = "cloud+qsm" if qsm else "cloud"
     for target, e in bundle["targets"].items():
+        if not has_dbh:
+            estimates[target] = None
+            continue
         corr = e[key]
         estimates[target] = {
             "baseline": run(e["baseline"]),
@@ -133,11 +140,11 @@ def predict(cloud: str, species: str | None = None, leaf_type: str | None = None
     geometry = {k: (None if not np.isfinite(v) else round(float(v), 4)) for k, v in feats.items()
                 if isinstance(v, (int, float, np.floating, np.integer)) and k.startswith(("pc_", "qsm_"))}
     out = {"input": {"cloud": str(cloud), "qsm": qsm, "species": species, "leaf_type": lt},
-           "summary": {"dbh_cm": round(d, 1), "height_m": round(h, 2),
+           "summary": {"dbh_cm": round(d, 1) if has_dbh else None, "height_m": round(h, 2),
                        "stem_lean_deg": geometry.get("pc_lean_deg"), "lean_azimuth_deg": geometry.get("pc_lean_azimuth_deg"),
                        "crown_offset_m": geometry.get("pc_crown_offset_m"), "stem_volume_m3": geometry.get("pc_stem_volume_m3")},
            "estimates": estimates, "flags": flags, "geometry": geometry}
-    if cyl is not None:
+    if cyl is not None and has_dbh:
         # Mechanics seed for the dynamics work: scale QSM cylinder volumes to the recommended fresh mass.
         from treewm.qsm.cylinders import base_moments, cylinder_volume
         fm = estimates["fresh_mass_total_kg"]

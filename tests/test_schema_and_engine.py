@@ -3,7 +3,7 @@ import pandas as pd
 import pytest
 
 from treewm.data.schema import check_measurements, measurement_rows
-from treewm.eval.engine import cross_validate
+from treewm.eval.engine import cross_validate, cross_validate_many
 from treewm.eval.splits import kfold
 from treewm.models.residual import TARGET, LogLinear, ResidualModel
 
@@ -39,3 +39,14 @@ def test_conformal_coverage_and_residual_gain():
     err0 = np.mean(np.abs(np.log(p0.yhat / p0.y)))
     err1 = np.mean(np.abs(np.log(p1.yhat / p1.y)))
     assert err1 < 0.8 * err0
+
+
+def test_parallel_cross_validation_matches_serial():
+    df = _synthetic(n=200)
+    outer = kfold(len(df), 5)
+    makes = [lambda: LogLinear(["log_dbh"]),
+             lambda: ResidualModel(LogLinear(["log_dbh"]), ["log_dbh", "z"], "ensemble", members=["ridge", "xgb", "gp"])]
+    jobs = [{"make": m, "df": df, "outer": outer, "group_col": "g", "scheme": "kfold"} for m in makes]
+    for job, (p, seconds) in zip(jobs, cross_validate_many(jobs, n_jobs=2)):
+        pd.testing.assert_frame_equal(p, cross_validate(**job))
+        assert seconds > 0

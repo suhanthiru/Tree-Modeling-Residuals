@@ -1,7 +1,6 @@
 """The three v1 experiments. Each returns (predictions, metrics) tables."""
 from __future__ import annotations
 
-import time
 from functools import partial
 
 import numpy as np
@@ -10,7 +9,7 @@ import yaml
 
 from treewm.baselines import allometry as al
 from treewm.data.schema import wide
-from treewm.eval.engine import cross_validate
+from treewm.eval.engine import cross_validate_many
 from treewm.eval.metrics import summarize
 from treewm.eval.splits import group_kfold, leave_one_group_out, stratified_kfold
 from treewm.geometry.build import load_features
@@ -65,12 +64,12 @@ def belgian_models(target: str, learners: list[str], xgb: dict) -> dict:
     return m
 
 
-def run_belgian(log=print) -> tuple[pd.DataFrame, pd.DataFrame]:
+def run_belgian(log=print, n_jobs: int = -1) -> tuple[pd.DataFrame, pd.DataFrame]:
     cfg = config()
     c = cfg["belgian"]
     W, T = _tables()
     F = load_features("belgian")
-    preds, rows = [], []
+    jobs, metas = [], []
     for scenario in c["scenarios"]:
         base = al.belgian_frame(W, F, T, scenario)
         base["qsm_mass_oracle_kg"] = base["qsm_volume_total_m3"] * base["fresh_density_kg_m3"]
@@ -84,18 +83,21 @@ def run_belgian(log=print) -> tuple[pd.DataFrame, pd.DataFrame]:
             for scheme in c["schemes"]:
                 outer = leave_one_group_out(df["site_id"]) if scheme == "leave_one_site_out" else stratified_kfold(df["site_id"], 5)
                 for name, (make, fs, fam) in belgian_models(target, c["learners"], cfg["xgboost"]).items():
-                    t0 = time.time()
-                    p = cross_validate(make, df, outer, "site_id", scheme, cfg["interval_level"])
-                    p = p.merge(df[["site_id", "species_latin", "dbh_used_cm"]], left_on="tree_id", right_index=True)
-                    meta = {"experiment": "belgian", "target": target, "scenario": scenario, "scheme": scheme,
-                            "model": name, "feature_set": fs, "family": fam}
-                    preds.append(p.assign(**meta))
-                    rows.append({**meta, **summarize(p.y, p.yhat, p.lo, p.hi), "seconds": round(time.time() - t0, 1)})
-                log(f"belgian {scenario:9s} {target:20s} {scheme:18s} n={len(df)} done")
+                    jobs.append({"make": make, "df": df, "outer": outer, "group_col": "site_id", "scheme": scheme,
+                                 "level": cfg["interval_level"]})
+                    metas.append({"experiment": "belgian", "target": target, "scenario": scenario, "scheme": scheme,
+                                  "model": name, "feature_set": fs, "family": fam})
+    log(f"belgian: {len(jobs)} cross-validated runs")
+    preds, rows = [], []
+    for job, meta, (p, seconds) in zip(jobs, metas, cross_validate_many(jobs, n_jobs)):
+        p = p.merge(job["df"][["site_id", "species_latin", "dbh_used_cm"]], left_on="tree_id", right_index=True)
+        preds.append(p.assign(**meta))
+        rows.append({**meta, **summarize(p.y, p.yhat, p.lo, p.hi), "seconds": round(seconds, 1)})
+    log("belgian done")
     return pd.concat(preds, ignore_index=True), pd.DataFrame(rows)
 
 
-def run_ceda(log=print) -> tuple[pd.DataFrame, pd.DataFrame]:
+def run_ceda(log=print, n_jobs: int = -1) -> tuple[pd.DataFrame, pd.DataFrame]:
     cfg = config()
     W, T = _tables()
     t = T.set_index("tree_id")
@@ -127,9 +129,10 @@ def run_ceda(log=print) -> tuple[pd.DataFrame, pd.DataFrame]:
     models["TLS-QSM + residual E / ensemble"] = (
         lambda: ResidualModel(al.fixed("agb_qsm_dry_kg"), sets["E"], "ensemble", xgb, ["ridge", "xgb", "gp"]), "E", "residual over QSM")
     outer = leave_one_group_out(df["study_id"])
+    jobs = [{"make": make, "df": df, "outer": outer, "group_col": "study_id", "scheme": "leave_one_study_out",
+             "level": cfg["interval_level"]} for make, _, _ in models.values()]
     preds, rows = [], []
-    for name, (make, fs, fam) in models.items():
-        p = cross_validate(make, df, outer, "study_id", "leave_one_study_out", cfg["interval_level"])
+    for (name, (_, fs, fam)), (p, _) in zip(models.items(), cross_validate_many(jobs, n_jobs)):
         p = p.merge(df[["study_id", "species_latin", "dbh_cm"]], left_on="tree_id", right_index=True)
         meta = {"experiment": "ceda", "target": "agb_dry_kg", "scenario": "inventory+TLS", "scheme": "leave_one_study_out",
                 "model": name, "feature_set": fs, "family": fam}
@@ -139,7 +142,7 @@ def run_ceda(log=print) -> tuple[pd.DataFrame, pd.DataFrame]:
     return pd.concat(preds, ignore_index=True), pd.DataFrame(rows)
 
 
-def run_biodiv(log=print) -> tuple[pd.DataFrame, pd.DataFrame]:
+def run_biodiv(log=print, n_jobs: int = -1) -> tuple[pd.DataFrame, pd.DataFrame]:
     cfg = config()
     W, T = _tables()
     F = load_features("biodiv")
@@ -175,9 +178,10 @@ def run_biodiv(log=print) -> tuple[pd.DataFrame, pd.DataFrame]:
                 partial(lambda s, lr: ResidualModel(LogLinear(sets["B"]), sets[s], lr, xgb, ["ridge", "xgb"]), s, lr),
                 s, "residual over allometry B")
     outer = group_kfold(df["site_id"], 5)
+    jobs = [{"make": make, "df": df, "outer": outer, "group_col": "site_id", "scheme": "group_5fold_by_plot",
+             "level": cfg["interval_level"]} for make, _, _ in models.values()]
     preds, rows = [], []
-    for name, (make, fs, fam) in models.items():
-        p = cross_validate(make, df, outer, "site_id", "group_5fold_by_plot", cfg["interval_level"])
+    for (name, (_, fs, fam)), (p, _) in zip(models.items(), cross_validate_many(jobs, n_jobs)):
         p = p.merge(df[["site_id", "species_latin", "dbh_tls_cm"]], left_on="tree_id", right_index=True)
         meta = {"experiment": "biodiv", "target": "qsm_volume_total_m3 (reconstructed)", "scenario": "TLS+ULS",
                 "scheme": "group_5fold_by_plot", "model": name, "feature_set": fs, "family": fam}

@@ -40,7 +40,8 @@ def features(datasets: str = typer.Option("belgian,biodiv", help="Comma-separate
 
 @app.command()
 def evaluate(experiments: str = typer.Option("belgian,ceda,biodiv", help="Comma-separated experiments"),
-             out: str = typer.Option("experiments/v1-residuals", help="Report folder (metrics.csv, tables.md, figures)")):
+             out: str = typer.Option("experiments/v1-residuals", help="Report folder (metrics.csv, tables.md, figures)"),
+             jobs: int = typer.Option(-1, help="Parallel worker processes (-1 = all cores, 1 = serial)")):
     """Run the v1 cross-validated experiments and write the result tables."""
     import pandas as pd
 
@@ -55,7 +56,7 @@ def evaluate(experiments: str = typer.Option("belgian,ceda,biodiv", help="Comma-
         old_p, old_m = pd.read_parquet(pred_path), pd.read_csv(met_path)
         P.append(old_p[~old_p.experiment.isin(names)]); R.append(old_m[~old_m.experiment.isin(names)])
     for name in names:
-        p, r = runners[name]()
+        p, r = runners[name](n_jobs=jobs)
         P.append(p); R.append(r)
     preds, metrics = pd.concat(P, ignore_index=True), pd.concat(R, ignore_index=True)
     OUTPUTS.mkdir(exist_ok=True)

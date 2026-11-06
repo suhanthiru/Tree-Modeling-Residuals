@@ -1,4 +1,4 @@
-"""treewm command line: download | ingest | features | rtwig | evaluate | figures | train | predict."""
+"""treewm command line: download | ingest | features | rtwig | evaluate | density-check | figures | train | predict."""
 from __future__ import annotations
 
 from typing import Optional
@@ -95,6 +95,17 @@ def evaluate_rtwig(out: str = typer.Option("experiments/v1.1-rtwig", help="Exper
     W, T = ex._tables()
     vol = volume_check(W, load_features("belgian"), load_features("belgian_rtwig"), T)
     print(write(preds, metrics, vol, ROOT / out))
+
+
+@app.command("density-check")
+def density_check(out: str = typer.Option("experiments/v1.1-rtwig", help="Experiment folder")):
+    """v1.1 follow-up: learned density per leaf type against published species wood densities."""
+    from treewm import experiments as ex
+    from treewm.eval.density_check import write
+    from treewm.geometry.build import load_features
+    from treewm.paths import ROOT
+    W, T = ex._tables()
+    print(write(W, load_features("belgian"), load_features("belgian_rtwig"), T, ROOT / out))
 
 
 @app.command()

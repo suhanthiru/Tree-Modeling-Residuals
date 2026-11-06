@@ -118,6 +118,33 @@ inputs and 16 with field inputs when a whole site is held out, and in 20 and 21 
 biomass and 0.88 for volume, but only 0.74 for fresh mass. Full coverage tables are in
 [tables.md](tables.md).
 
+**5. Where the density comes from** (follow-up, [density_check.md](density_check.md)). The
+density in "QSM volume × density" is learned, not measured: for every training tree, harvested
+dry mass ÷ rTwig volume, averaged (geometric mean) over the trees of the same leaf type
+(conifer: larch and pine; broadleaf: beech and ash). On all
+65 trees that is 573 kg/m³ for broadleaf and 535 kg/m³ for conifers. It is an effective
+density: it also absorbs what rTwig still gets wrong about volume. Pine wood measured at the
+stem base is 462 kg/m³, but rTwig volume is about 18 % short for pine, so pine's effective density
+comes out at 534.
+
+Published basic wood densities per species (IPCC table, [configs/wood_density.yaml](../../configs/wood_density.yaml))
+were tried in its place. Dry biomass, whole site held out, mean error per tree (%):
+
+| Density | Numbers fitted | All | Beech | Ash | Larch | Scots pine |
+|---|---|---|---|---|---|---|
+| Published, as it is | 0 | 13.5 | 6.6 | 5.0 | 14.9 | 20.9 |
+| Published × one learned factor | 1 | 15.1 | 20.4 | 15.5 | 4.4 | 14.0 |
+| Published × learned factor per leaf type | 2 | 7.9 | 6.8 | 5.6 | 8.5 | 9.5 |
+| Learned per leaf type (the v1.1 model) | 2 | 7.3 | 6.5 | 5.0 | 3.4 | 9.4 |
+| The tree's own base-disc density | 0 | 9.4 | 5.0 | 6.3 | 7.5 | 13.5 |
+
+These use plain geometric means without the smearing step, so the v1.1 model reads 7.3 %
+here against 7.6 % in result 2. The learned density wins by 0.6 points (95 % bootstrap interval
+−0.1 to +1.4), almost all on the 5 larch trees. Larch wood is denser than pine, but rTwig
+under-reads pine volume more than larch, and the two differences cancel; the published
+density corrects the first and not the second. A published density would only help for a
+species with no relative of similar density in training, which this data cannot test.
+
 ## Takeaways
 
 - **rTwig fixes v1's main QSM problem.** The species-dependent overestimate goes away for
@@ -143,6 +170,10 @@ biomass and 0.88 for volume, but only 0.74 for fresh mass. Full coverage tables 
   not the cause: an earlier check with the smaller *Pinus strobus* radius (1.93 mm) made pine
   slightly worse (19 % error against 18 %). The shrinkage comes mostly from rTwig's taper model
   along pine branches, so this needs pine trees from other sites to resolve.
+- **Keep the learned density.** It beats published species densities here (7.3 % against 7.9 %).
+  Published densities stay useful as a warning: a new species whose published density is far
+  from the training species of its leaf type (poplar at 350 kg/m³ against beech and ash at
+  570–580) would get a learned density that is off by about that much.
 
 ## Caveats
 
@@ -157,11 +188,13 @@ biomass and 0.88 for volume, but only 0.74 for fresh mass. Full coverage tables 
 ```bash
 uv run treewm rtwig --rscript "<path to Rscript>" --r-libs "<R library with rTwig>"
 uv run treewm evaluate-rtwig
+uv run treewm density-check
 ```
 
 after v1's `download`, `ingest` and `features`. `treewm rtwig` writes the corrected cylinders
 to `data/processed/rtwig/` and their features to `data/processed/features_belgian_rtwig.parquet`
-(about 2.5 minutes with 10 R processes). `evaluate-rtwig` takes about a minute.
+(about 2.5 minutes with 10 R processes). `evaluate-rtwig` takes about a minute;
+`density-check` a few seconds.
 
 ## Files
 
@@ -171,4 +204,6 @@ to `data/processed/rtwig/` and their features to `data/processed/features_belgia
 | [metrics.csv](metrics.csv) | Machine-readable metrics, 280 evaluated combinations |
 | [volume_check.csv](volume_check.csv) | Per tree: harvested, TreeQSM and rTwig volumes (total, stem, branch) and twig radius |
 | [by_group.csv](by_group.csv) | Per-species errors of the key models |
+| [density_check.md](density_check.md) | Result 5: learned against published densities, densities per species and per held-out site |
+| [density_check.csv](density_check.csv) | Per tree: volumes, densities and every density model's dry-biomass estimate |
 | figures/ | The two figures above |

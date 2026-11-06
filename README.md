@@ -30,7 +30,9 @@ full write-up in [report.md](experiments/v1-residuals/report.md).
 species-dependent volume overestimate for beech, ash and larch (Scots pine is over-corrected
 with the genus-average twig radius). With corrected volume, the two-parameter model "QSM volume
 × density learned per leaf type" becomes the best model on held-out sites for dry biomass and
-matches the best for volume; the learned correction gains less. Details:
+matches the best for volume; the learned correction gains less. A follow-up check found the
+learned density per leaf type also beats published species wood densities on these trees
+(7.3 % against 7.9 %, mostly on larch), so it stays the model. Details:
 [experiments/v1.1-rtwig](experiments/v1.1-rtwig/).
 
 ## Pipeline
@@ -47,6 +49,7 @@ download → ingest → features → (rtwig) → evaluate → figures → train 
 | rTwig (v1.1) | `uv run treewm rtwig --rscript <Rscript> --r-libs <R library>` | Corrects the Belgian QSM twig radii with the rTwig R package and computes the corrected QSM features. Needs R with rTwig 1.4. |
 | Evaluate | `uv run treewm evaluate` | Runs the three cross-validated v1 experiments and writes `metrics.csv`, `tables.md` and the measured-vs-predicted figures into `experiments/v1-residuals/`. |
 | Evaluate v1.1 | `uv run treewm evaluate-rtwig` | Reruns the v1 Belgian models with TreeQSM, rTwig and combined QSM features; writes into `experiments/v1.1-rtwig/`. |
+| Density check (v1.1) | `uv run treewm density-check` | Compares the density learned per leaf type with published species wood densities (`configs/wood_density.yaml`) on held-out sites; writes `density_check.md` into `experiments/v1.1-rtwig/`. |
 | Figures | `uv run treewm figures` | Draws the explanatory figures in the report (example tree, geometry checks, ablation, per species and per study). |
 | Train | `uv run treewm train` | Fits the deployable bundle on all Belgian trees with scan-only inputs. |
 | Predict | `uv run treewm predict tree.laz --species "Pinus sylvestris" [--qsm tree.mat]` | JSON with DBH, height, lean, crown offset, stem volume, baseline and corrected volume/mass with 90 % intervals, extrapolation flags, and (with a QSM) centre of mass and base moments. |

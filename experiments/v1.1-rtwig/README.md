@@ -139,8 +139,10 @@ biomass and 0.88 for volume, but only 0.74 for fresh mass. Full coverage tables 
 - **Pine is the weak spot.** rTwig's table has no Scots pine entry, and the *Pinus* average
   (3.01 mm) shrinks pine branches to 0.28 of harvest. The learned density hides this here,
   because when one pine site is held out the other pine site trains the conifer factor. A
-  conifer with no relative in training would not get that help. A measured Scots pine twig
-  radius is the obvious fix to test.
+  conifer with no relative in training would not get that help. The twig value is probably
+  not the cause: an earlier check with the smaller *Pinus strobus* radius (1.93 mm) made pine
+  slightly worse (19 % error against 18 %). The shrinkage comes mostly from rTwig's taper model
+  along pine branches, so this needs pine trees from other sites to resolve.
 
 ## Caveats
 

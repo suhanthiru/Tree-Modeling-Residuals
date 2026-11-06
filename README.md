@@ -51,8 +51,29 @@ download → ingest → features → (rtwig) → evaluate → figures → train 
 | Evaluate v1.1 | `uv run treewm evaluate-rtwig` | Reruns the v1 Belgian models with TreeQSM, rTwig and combined QSM features; writes into `experiments/v1.1-rtwig/`. |
 | Density check (v1.1) | `uv run treewm density-check` | Compares the density learned per leaf type with published species wood densities (`configs/wood_density.yaml`) on held-out sites; writes `density_check.md` into `experiments/v1.1-rtwig/`. |
 | Figures | `uv run treewm figures` | Draws the explanatory figures in the report (example tree, geometry checks, ablation, per species and per study). |
-| Train | `uv run treewm train` | Fits the deployable bundle on all Belgian trees with scan-only inputs. |
-| Predict | `uv run treewm predict tree.laz --species "Pinus sylvestris" [--qsm tree.mat]` | JSON with DBH, height, lean, crown offset, stem volume, baseline and corrected volume/mass with 90 % intervals, extrapolation flags, and (with a QSM) centre of mass and base moments. |
+| Train | `uv run treewm train` | Fits the deployable bundle (v1.1) on all Belgian trees with scan-only inputs; needs the outputs of `evaluate` and `evaluate-rtwig`. |
+| Predict | `uv run treewm predict tree.laz --species "Pinus sylvestris" [--qsm tree.mat --rscript <Rscript> --r-libs <R library>]` | JSON with DBH, height, lean, crown offset, stem volume, baseline and corrected volume/mass with 90 % intervals, extrapolation flags, and (with a QSM) centre of mass and base moments. With a QSM it first corrects the twig radii with rTwig. |
+
+**What `predict` uses.** Per target, the model with the lowest error on held-out sites in v1
+and v1.1, except that rTwig volume × density learned per leaf type is kept unless another model
+beats it with 95 % confidence (paired bootstrap over trees). Errors are mean error per tree on
+held-out sites, scan inputs. They are the errors the models were picked on, so slightly
+optimistic; the one pick the bootstrap decides, fresh mass, holds up when whole sites are
+resampled instead of trees (the correction is better on all five sites).
+
+| Target | Scan only | Error | Scan + QSM, corrected with rTwig | Error | DBH formula |
+|---|---|---|---|---|---|
+| Fresh mass | correction D over the DBH formula | 11.4 % | same (no QSM model beats it) | 11.4 % | 14.8 % |
+| Dry biomass | correction D over the DBH formula | 11.1 % | rTwig volume × density per leaf type | 7.6 % | 17.5 % |
+| Total woody volume | correction D over the DBH formula | 8.3 % | rTwig volume × density per leaf type | 7.9 % | 10.6 % |
+| Stem volume | correction D over DBH + height | 11.6 % | correction E over the DBH formula, TreeQSM + rTwig features | 8.4 % | 18.3 % |
+
+rTwig needs R with the rTwig package (pass `--rscript` and `--r-libs`, or set `TREEWM_RSCRIPT`
+and `R_LIBS_USER`) and takes 10 s to a minute per tree. The twig radius comes from rTwig's table
+for the species or its genus, or from `--twig-radius-mm`. If rTwig cannot run, or with
+`--no-rtwig`, predict uses the v1 models on TreeQSM features and says so in `flags`. A species
+outside training whose published wood density is more than 15 % from the training species of
+its leaf type is flagged too.
 
 Setup needs [uv](https://docs.astral.sh/uv/) and Python 3.12: `uv sync`, then `uv run pytest`.
 

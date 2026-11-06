@@ -118,11 +118,14 @@ def figures(out: str = typer.Option("experiments/v1-residuals", help="Report fol
 
 
 @app.command()
-def train(metrics: str = typer.Option("experiments/v1-residuals/metrics.csv", help="Metrics from `treewm evaluate`")):
+def train(metrics: str = typer.Option("experiments/v1-residuals/metrics.csv", help="Metrics from `treewm evaluate`"),
+          rtwig_metrics: str = typer.Option("experiments/v1.1-rtwig/metrics.csv", help="Metrics from `treewm evaluate-rtwig`"),
+          rtwig_predictions: str = typer.Option("outputs/predictions_v1.1.parquet",
+                                                help="Held-out predictions from `treewm evaluate-rtwig`")):
     """Fit the deployable model bundle on all Belgian trees (scan-only inputs)."""
     from treewm.deploy import train as tr
     from treewm.paths import ROOT
-    print(tr(ROOT / metrics))
+    print(tr(ROOT / metrics, ROOT / rtwig_metrics, ROOT / rtwig_predictions))
 
 
 @app.command()
@@ -130,13 +133,18 @@ def predict(cloud: str = typer.Argument(..., help="Single-tree point cloud (.laz
             species: Optional[str] = typer.Option(None, help="Latin name, e.g. 'Pinus sylvestris'"),
             leaf_type: Optional[str] = typer.Option(None, help="conifer or broadleaf (if species unknown)"),
             qsm: Optional[str] = typer.Option(None, help="Optional TreeQSM .mat for the same tree"),
+            rtwig: bool = typer.Option(True, "--rtwig/--no-rtwig", help="Correct the QSM's twig radii with rTwig"),
+            twig_radius_mm: Optional[float] = typer.Option(None, help="Twig radius for rTwig (default: rTwig's table for the species or genus)"),
+            rscript: Optional[str] = typer.Option(None, help="Path to Rscript (default: TREEWM_RSCRIPT or PATH)"),
+            r_libs: Optional[str] = typer.Option(None, help="R package library holding rTwig (default: R_LIBS_USER)"),
             out: Optional[str] = typer.Option(None, help="Write JSON here instead of stdout")):
-    """Estimate geometry, volume and mass for one tree scan."""
+    """Estimate geometry, volume and mass for one tree scan (with --qsm, from the rTwig-corrected QSM)."""
     from pathlib import Path
 
     from treewm.deploy import predict as pr
     from treewm.deploy import to_json
-    s = to_json(pr(cloud, species, leaf_type, qsm))
+    s = to_json(pr(cloud, species, leaf_type, qsm, use_rtwig=rtwig, twig_radius_mm=twig_radius_mm,
+                   rscript=rscript, r_libs=r_libs))
     if out:
         Path(out).write_text(s)
     print(s)

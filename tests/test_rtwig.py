@@ -198,7 +198,8 @@ def test_find_rscript_uses_env_var(tmp_path, monkeypatch):
     monkeypatch.setenv("TREEWM_RSCRIPT", str(exe))
     monkeypatch.setattr(rtwig.shutil, "which", lambda *a, **k: None)
     assert rtwig.find_rscript() == str(exe)
-    assert rtwig.find_rscript(str(tmp_path / "missing.exe")) == str(exe)  # bad argument falls through
+    with pytest.raises(FileNotFoundError):  # a wrong explicit path is an error, not a silent fallback
+        rtwig.find_rscript(str(tmp_path / "missing.exe"))
 
 
 def test_find_rscript_order_argument_env_path(tmp_path, monkeypatch):

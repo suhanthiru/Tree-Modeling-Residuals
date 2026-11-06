@@ -1,11 +1,12 @@
 # Correct the twig radii of TreeQSM models with rTwig, for a batch of trees.
 #
 # usage: Rscript rtwig.R <jobs.csv>
-#   jobs.csv columns: tree_id, species_latin, qsm_mat, out_csv
+#   jobs.csv columns: tree_id, species_latin, qsm_mat, out_csv, and optionally twig_radius_mm
 #
 # For every tree it writes out_csv (one row per cylinder, rTwig column names) and a one-row
-# sidecar <out_csv>.meta.csv with the twig radius used. The twig radius comes from rTwig's
-# `twigs` table: the species if listed, otherwise the "<Genus> spp." average.
+# sidecar <out_csv>.meta.csv with the twig radius used. The twig radius is twig_radius_mm when
+# given, otherwise it comes from rTwig's `twigs` table: the species if listed, otherwise the
+# "<Genus> spp." average.
 # Smoothing is off: rTwig's default smooth = TRUE also moves cylinder start points, and v1.1
 # changes radii only. Called by treewm/qsm/rtwig.py; it is not meant to be run by hand.
 
@@ -17,7 +18,9 @@ keep <- c("start.x", "start.y", "start.z", "axis.x", "axis.y", "axis.z", "end.x"
           "length", "radius", "OldRadius", "UnmodRadius", "parent", "extension", "added",
           "BranchOrder", "PositionInBranch", "branch", "modified")
 
-twig_radius <- function(sp) {
+twig_radius <- function(sp, given = NA) {
+  if (!is.na(given)) return(list(r = as.numeric(given), src = "given"))
+  if (is.na(sp) || sp == "") stop("no species and no twig radius given")
   hit <- twigs[twigs$scientific_name == sp, ]
   if (nrow(hit)) return(list(r = hit$radius_mm[1], src = sp))
   genus <- paste(strsplit(sp, " ")[[1]][1], "spp.")
@@ -30,7 +33,7 @@ for (i in seq_len(nrow(jobs))) {
   j <- jobs[i, ]
   t0 <- Sys.time()
   res <- tryCatch({
-    tw <- twig_radius(j$species_latin)
+    tw <- twig_radius(j$species_latin, if ("twig_radius_mm" %in% names(j)) j$twig_radius_mm else NA)
     out <- as.data.frame(suppressMessages(
       run_rtwig(j$qsm_mat, twig_radius = tw$r, metrics = FALSE, smooth = FALSE, version = "2.3.0")))
     write.csv(out[, keep], j$out_csv, row.names = FALSE)

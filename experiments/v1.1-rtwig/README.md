@@ -180,8 +180,9 @@ species with no relative of similar density in training, which this data cannot 
 - Five sites, four species. The volume targets use a density that the data owners partly
   weighted with QSM profiles; dry biomass and fresh mass are fully independent of the QSM,
   and they show the same pattern.
-- Deployment needs R and rTwig at prediction time. `treewm predict --qsm` still uses
-  TreeQSM radii; switching it is a follow-up.
+- Deployment needs R and rTwig at prediction time. Since this experiment, `treewm predict
+  --qsm` corrects the QSM with rTwig and uses the models of this experiment (see the
+  [main README](../../README.md#pipeline)); without R it falls back to the v1 TreeQSM models.
 
 ## Reproduce
 

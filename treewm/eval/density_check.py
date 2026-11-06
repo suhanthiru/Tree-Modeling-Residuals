@@ -19,7 +19,7 @@ import pandas as pd
 from treewm.baselines import allometry as al
 from treewm.baselines.density import lookup
 from treewm.baselines.density import table as density_table
-from treewm.eval.metrics import summarize
+from treewm.eval.metrics import paired_bootstrap, summarize
 from treewm.eval.report import _md
 
 SHORT = {"Fagus sylvatica": "Beech", "Fraxinus excelsior": "Ash", "Larix decidua": "Larch", "Pinus sylvestris": "Scots pine"}
@@ -135,16 +135,6 @@ def site_table(d: pd.DataFrame) -> pd.DataFrame:
                          t["rho_table"].iloc[0] * geo(same["agb_dry_kg"] / (same["v_rtwig"] * same["rho_table"])),
                      "learned from": ", ".join(sorted(SHORT.get(s, s) for s in same["species_latin"].unique()))})
     return pd.DataFrame(rows)
-
-
-def paired_bootstrap(a: pd.Series, b: pd.Series, y: pd.Series, n: int = 5000, seed: int = 0) -> dict:
-    """Mean of |b/y - 1| - |a/y - 1| in percentage points, with a 95 % bootstrap interval over trees."""
-    diff = 100 * (np.abs(b / y - 1) - np.abs(a / y - 1)).to_numpy()
-    rng = np.random.default_rng(seed)
-    bs = diff[rng.integers(0, len(diff), (n, len(diff)))].mean(axis=1)
-    lo, hi = np.percentile(bs, [2.5, 97.5])
-    return {"diff_pp": float(diff.mean()), "lo": float(lo), "hi": float(hi), "a_better": int((diff > 0).sum()),
-            "n": len(diff)}
 
 
 def write(W: pd.DataFrame, F: pd.DataFrame, R: pd.DataFrame, T: pd.DataFrame, out: Path) -> Path:

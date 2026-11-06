@@ -215,19 +215,26 @@ def rtwig_config() -> dict:
             "learners": parent["belgian"]["learners"]}
 
 
-def qsm_feature_table(source: str) -> pd.DataFrame:
-    F = load_features("belgian")
+def with_qsm_source(F: pd.DataFrame, R: pd.DataFrame | None, source: str) -> pd.DataFrame:
+    """TreeQSM feature table F with the QSM features of `source`; R holds the rtwig_ features,
+    on the same index (one row per tree; also used for a single tree in `treewm predict`)."""
     if source in ("none", "treeqsm"):
         return F
-    R = load_features("belgian_rtwig")
     if source == "rtwig":
         F = F.copy()
         for c in RTWIG_SWAP:
             F[c] = R[c.replace("qsm_", "rtwig_", 1)]
         return F
     if source == "both":
-        return F.join(R[["rtwig_volume_branch_m3", "rtwig_log_shrink"]])
+        F = F.join(R[["rtwig_volume_branch_m3", "rtwig_log_shrink"]])
+        F["log_rtwig_branch"] = al._log(F["rtwig_volume_branch_m3"])  # NaN (imputed) for a QSM without branches
+        return F
     raise ValueError(source)
+
+
+def qsm_feature_table(source: str) -> pd.DataFrame:
+    R = None if source in ("none", "treeqsm") else load_features("belgian_rtwig")
+    return with_qsm_source(load_features("belgian"), R, source)
 
 
 def rtwig_models(target: str, source: str, xgb: dict) -> dict:
@@ -261,23 +268,26 @@ def rtwig_models(target: str, source: str, xgb: dict) -> dict:
     return m
 
 
+def check_rtwig_features(R: pd.DataFrame, cfg: dict) -> None:
+    """The corrected features must come from the rTwig version and smoothing setting in the config."""
+    versions = set(R["rtwig_version"].astype(str))
+    if versions != {cfg["rtwig"]["package_version"]}:
+        raise RuntimeError(f"features were built with rTwig {versions}, config expects {cfg['rtwig']['package_version']}")
+    if R["smooth"].astype(bool).any() != bool(cfg["rtwig"]["smooth"]):
+        raise RuntimeError("features were built with a different rTwig smoothing setting than the config")
+
+
 def run_rtwig(log=print, n_jobs: int = -1) -> tuple[pd.DataFrame, pd.DataFrame]:
     """v1 Belgian experiment with the QSM features taken from TreeQSM, rTwig, or both."""
     cfg = rtwig_config()
     c = cfg["belgian"]
     W, T = _tables()
-    versions = set(load_features("belgian_rtwig")["rtwig_version"].astype(str))
-    if versions != {cfg["rtwig"]["package_version"]}:
-        raise RuntimeError(f"features were built with rTwig {versions}, config expects {cfg['rtwig']['package_version']}")
-    if load_features("belgian_rtwig")["smooth"].astype(bool).any() != bool(cfg["rtwig"]["smooth"]):
-        raise RuntimeError("features were built with a different rTwig smoothing setting than the config")
+    check_rtwig_features(load_features("belgian_rtwig"), cfg)
     jobs, metas = [], []
     for source in QSM_SOURCES:
         F = qsm_feature_table(source)
         for scenario in c["scenarios"]:
             base = al.belgian_frame(W, F, T, scenario)
-            if source == "both":
-                base["log_rtwig_branch"] = np.log(base["rtwig_volume_branch_m3"])
             for target in c["targets"]:
                 df = belgian_rows(base, target)
                 for scheme in c["schemes"]:

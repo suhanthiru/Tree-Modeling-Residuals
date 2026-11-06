@@ -14,7 +14,7 @@ from treewm.eval.metrics import summarize
 from treewm.eval.splits import group_kfold, leave_one_group_out, stratified_kfold
 from treewm.geometry.build import load_features
 from treewm.models.residual import TARGET, LogLinear, ResidualModel
-from treewm.paths import LABELS, PROCESSED, V1
+from treewm.paths import LABELS, PROCESSED, V1, V1_1
 
 MASS_TARGETS = {"fresh_mass_total_kg", "agb_dry_kg"}
 
@@ -64,6 +64,17 @@ def belgian_models(target: str, learners: list[str], xgb: dict) -> dict:
     return m
 
 
+def belgian_rows(base: pd.DataFrame, target: str) -> pd.DataFrame:
+    """The trees every Belgian model is scored on for a target, with TARGET = log(target)."""
+    df = base[base[target].notna() & base["log_dbh"].notna() & base["log_h"].notna()].copy()
+    if target == "agb_dry_kg":  # compare every model on the trees that have the published estimate
+        df = df[df["agb_allom_dry_kg"].notna() & df["agb_qsm_dry_kg"].notna()]
+    if target == "volume_stem_m3":  # same for the raw point-cloud stem volume
+        df = df[df["pc_stem_volume_m3"].notna()]
+    df[TARGET] = np.log(df[target])
+    return df
+
+
 def run_belgian(log=print, n_jobs: int = -1) -> tuple[pd.DataFrame, pd.DataFrame]:
     cfg = config()
     c = cfg["belgian"]
@@ -74,12 +85,7 @@ def run_belgian(log=print, n_jobs: int = -1) -> tuple[pd.DataFrame, pd.DataFrame
         base = al.belgian_frame(W, F, T, scenario)
         base["qsm_mass_oracle_kg"] = base["qsm_volume_total_m3"] * base["fresh_density_kg_m3"]
         for target in c["targets"]:
-            df = base[base[target].notna() & base["log_dbh"].notna() & base["log_h"].notna()].copy()
-            if target == "agb_dry_kg":  # compare every model on the trees that have the published estimate
-                df = df[df["agb_allom_dry_kg"].notna() & df["agb_qsm_dry_kg"].notna()]
-            if target == "volume_stem_m3":  # same for the raw point-cloud stem volume
-                df = df[df["pc_stem_volume_m3"].notna()]
-            df[TARGET] = np.log(df[target])
+            df = belgian_rows(base, target)
             for scheme in c["schemes"]:
                 outer = leave_one_group_out(df["site_id"]) if scheme == "leave_one_site_out" else stratified_kfold(df["site_id"], 5)
                 for name, (make, fs, fam) in belgian_models(target, c["learners"], cfg["xgboost"]).items():
@@ -188,4 +194,104 @@ def run_biodiv(log=print, n_jobs: int = -1) -> tuple[pd.DataFrame, pd.DataFrame]
         preds.append(p.assign(**meta))
         rows.append({**meta, **summarize(p.y, p.yhat, p.lo, p.hi)})
     log(f"biodiv: {len(df)} trees, {df.site_id.nunique()} plots done")
+    return pd.concat(preds, ignore_index=True), pd.DataFrame(rows)
+
+
+# ---------------------------------------------------------------- v1.1: rTwig-corrected QSMs
+
+# TreeQSM feature columns that rTwig changes. DBH, height, crown base and lean stay TreeQSM's,
+# so the only difference between sources is cylinder radii and the volumes built from them.
+RTWIG_SWAP = ["qsm_volume_total_m3", "qsm_volume_stem_m3", "qsm_volume_branch_m3", "qsm_branch_ratio",
+              "qsm_volume_order1_m3", "qsm_volume_order2plus_m3", "qsm_branch_asymmetry",
+              "qsm_com_height_ratio", "qsm_com_offset_m", "qsm_added_fraction"]
+SET_E_BOTH = al.FEATURE_SETS["E"] + ["log_rtwig_branch", "rtwig_log_shrink"]
+QSM_SOURCES = ["none", "treeqsm", "rtwig", "both"]  # none: models without QSM inputs, scored once
+
+
+def rtwig_config() -> dict:
+    cfg = yaml.safe_load((V1_1 / "config.yaml").read_text())
+    parent = config()
+    return {**cfg, "xgboost": parent["xgboost"], "interval_level": parent["interval_level"],
+            "learners": parent["belgian"]["learners"]}
+
+
+def qsm_feature_table(source: str) -> pd.DataFrame:
+    F = load_features("belgian")
+    if source in ("none", "treeqsm"):
+        return F
+    R = load_features("belgian_rtwig")
+    if source == "rtwig":
+        F = F.copy()
+        for c in RTWIG_SWAP:
+            F[c] = R[c.replace("qsm_", "rtwig_", 1)]
+        return F
+    if source == "both":
+        return F.join(R[["rtwig_volume_branch_m3", "rtwig_log_shrink"]])
+    raise ValueError(source)
+
+
+def rtwig_models(target: str, source: str, xgb: dict) -> dict:
+    """name -> (factory, feature set, family). Names match v1 so the TreeQSM rows can be checked against it."""
+    def corr(base, feats, learner="ensemble"):
+        return lambda: ResidualModel(base=base(), features=feats, learner=learner, xgb_params=xgb,
+                                     members=["ridge", "xgb", "gp"])
+    A, B = partial(al.allometry, "A"), partial(al.allometry, "B")
+    if source == "none":
+        return {"allometry A (DBH)": (A, "A", "fitted allometry"),
+                "allometry B (DBH+H+leaf type)": (B, "B", "fitted allometry"),
+                "residual D over A / ensemble": (corr(A, al.FEATURE_SETS["D"]), "D", "residual over allometry A")}
+    feats, tag = (SET_E_BOTH, "E+rTwig") if source == "both" else (al.FEATURE_SETS["E"], "E")
+    qsm_target = target in MASS_TARGETS or target == "volume_total_m3"
+    m = {}
+    if source != "both":
+        if target == "volume_total_m3":
+            m["QSM volume (raw)"] = (partial(al.fixed, "qsm_volume_total_m3"), "qsm", "reconstruction")
+        if target == "volume_stem_m3":
+            m["QSM stem volume (raw)"] = (partial(al.fixed, "qsm_volume_stem_m3"), "qsm", "reconstruction")
+        if qsm_target:
+            m["QSM x fold density"] = (partial(al.qsm_offset), "qsm", "geometry x density")
+    if qsm_target:
+        m[f"QSM x fold density + residual {tag} / ensemble"] = (corr(al.qsm_offset, feats), tag, "residual over QSM")
+    if target == "agb_dry_kg":
+        m[f"published allometry + residual {tag} / ensemble"] = (
+            corr(partial(al.fixed, "agb_allom_dry_kg"), feats), tag, "residual over published")
+    m[f"residual {tag} / ensemble"] = (corr(B, feats), tag, "residual over allometry B")
+    for lr in ["ridge", "ensemble"]:
+        m[f"residual {tag} over A / {lr}"] = (corr(A, feats, lr), tag, "residual over allometry A")
+    return m
+
+
+def run_rtwig(log=print, n_jobs: int = -1) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """v1 Belgian experiment with the QSM features taken from TreeQSM, rTwig, or both."""
+    cfg = rtwig_config()
+    c = cfg["belgian"]
+    W, T = _tables()
+    versions = set(load_features("belgian_rtwig")["rtwig_version"].astype(str))
+    if versions != {cfg["rtwig"]["package_version"]}:
+        raise RuntimeError(f"features were built with rTwig {versions}, config expects {cfg['rtwig']['package_version']}")
+    if load_features("belgian_rtwig")["smooth"].astype(bool).any() != bool(cfg["rtwig"]["smooth"]):
+        raise RuntimeError("features were built with a different rTwig smoothing setting than the config")
+    jobs, metas = [], []
+    for source in QSM_SOURCES:
+        F = qsm_feature_table(source)
+        for scenario in c["scenarios"]:
+            base = al.belgian_frame(W, F, T, scenario)
+            if source == "both":
+                base["log_rtwig_branch"] = np.log(base["rtwig_volume_branch_m3"])
+            for target in c["targets"]:
+                df = belgian_rows(base, target)
+                for scheme in c["schemes"]:
+                    outer = leave_one_group_out(df["site_id"]) if scheme == "leave_one_site_out" else stratified_kfold(df["site_id"], 5)
+                    for name, (make, fs, fam) in rtwig_models(target, source, cfg["xgboost"]).items():
+                        jobs.append({"make": make, "df": df, "outer": outer, "group_col": "site_id", "scheme": scheme,
+                                     "level": cfg["interval_level"]})
+                        metas.append({"experiment": "belgian_rtwig", "qsm_source": source, "target": target,
+                                      "scenario": scenario, "scheme": scheme, "model": name, "feature_set": fs, "family": fam})
+    log(f"belgian_rtwig: {len(jobs)} cross-validated runs")
+    preds, rows = [], []
+    for job, meta, (p, seconds) in zip(jobs, metas, cross_validate_many(jobs, n_jobs)):
+        p = p.merge(job["df"][["site_id", "species_latin", "dbh_used_cm"]], left_on="tree_id", right_index=True)
+        preds.append(p.assign(**meta))
+        rows.append({**meta, **summarize(p.y, p.yhat, p.lo, p.hi), "seconds": round(seconds, 1)})
+    log("belgian_rtwig done")
     return pd.concat(preds, ignore_index=True), pd.DataFrame(rows)

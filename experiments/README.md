@@ -6,7 +6,7 @@ folder holds only what defines it and what it produced.
 | Experiment | Question | Status | Headline |
 |---|---|---|---|
 | [v1-residuals](v1-residuals/) | Do learned corrections on top of allometry beat allometry on unseen sites? | done (`v1.0`) | Dry AGB relMAE 17.5 % → 9.8 % on held-out Belgian sites |
-| v1.1-rtwig | Does correcting QSM twig radii with rTwig make QSM volume a better estimate and a better residual feature? | planned | — |
+| [v1.1-rtwig](v1.1-rtwig/) | Does correcting QSM twig radii with rTwig make QSM volume a better estimate and a better residual feature? | done (`v1.1`) | Dry AGB relMAE 7.6 % on held-out Belgian sites with rTwig volume × learned density (v1 best 9.8 %) |
 
 ## Conventions
 

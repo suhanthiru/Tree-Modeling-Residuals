@@ -52,7 +52,8 @@ crown geometry lowers log RMSE from 0.398 (DBH + height + genus) to 0.365.
   fresh mass. The four species differ too much in height-to-mass relations.
 - QSM volume overestimates harvested volume by about 25 %, by an amount that depends on species
   (about 2x for one larch). Used raw it is worse than DBH allometry, but it is a strong residual
-  feature. This is the starting point for [v1.1](../README.md).
+  feature. This is the starting point for [v1.1](../v1.1-rtwig/), which corrects the QSM
+  twig radii with rTwig.
 - Interval coverage holds near 90 % for the residual models on unseen sites. The DBH-only
   fresh-mass baseline undercovers at 0.81.
 - Caveat: about 25 models are scored on the same folds, so the best numbers are slightly

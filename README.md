@@ -14,7 +14,7 @@ world model (mass distribution, gravitational moments, eventually fall dynamics)
 | Experiment | Question | Status | Headline |
 |---|---|---|---|
 | [v1 · residuals](experiments/v1-residuals/) | Do learned corrections on top of allometry beat allometry on unseen sites? | done (`v1.0`) | Dry AGB error 17.5 % → 9.8 % on held-out Belgian sites; 32.9 % → 17.3 % on held-out studies worldwide |
-| v1.1 · rTwig | Does correcting QSM twig radii with rTwig make QSM volume a better estimate and a better residual feature? | planned | — |
+| [v1.1 · rTwig](experiments/v1.1-rtwig/) | Does correcting QSM twig radii with rTwig make QSM volume a better estimate and a better residual feature? | done (`v1.1`) | QSM volume error vs harvest 26 % → 11 %; rTwig volume × learned density gives 7.6 % dry AGB error on held-out sites (v1 best 9.8 %) |
 
 Each experiment has its own folder with a README (question, setup, results, how to reproduce),
 its config and its outputs. Conventions are in [experiments/README.md](experiments/README.md).
@@ -26,10 +26,17 @@ worse than DBH allometry used raw but a strong feature for the correction. Inter
 holds near 90 % on unseen sites. Details: [experiments/v1-residuals](experiments/v1-residuals/),
 full write-up in [report.md](experiments/v1-residuals/report.md).
 
+**v1.1 in short.** rTwig shrinks TreeQSM's over-sized twig radii. It removes the
+species-dependent volume overestimate for beech, ash and larch (Scots pine is over-corrected
+with the genus-average twig radius). With corrected volume, the two-parameter model "QSM volume
+× density learned per leaf type" becomes the best model on held-out sites for dry biomass and
+matches the best for volume; the learned correction gains less. Details:
+[experiments/v1.1-rtwig](experiments/v1.1-rtwig/).
+
 ## Pipeline
 
 ```
-download → ingest → features → evaluate → figures → train → predict
+download → ingest → features → (rtwig) → evaluate → figures → train → predict
 ```
 
 | Step | Command | What it does |
@@ -37,7 +44,9 @@ download → ingest → features → evaluate → figures → train → predict
 | Download | `uv run treewm download belgian ceda biodiv` | Fetches raw data into `data/raw/<dataset>/` with size checks and resumable transfers. BioDiv TLS (20 GB) is opt-in with `--parts tls`. |
 | Ingest | `uv run treewm ingest` | Builds `trees`, `measurements` (long format, one unit and one definition per quantity, tagged measured / reconstructed / derived) and QSM cylinder tables as Parquet. |
 | Features | `uv run treewm features` | Point-cloud stem tracking and crown geometry, QSM structure metrics, BioDiv graph and drone (ULS) features. Runs in parallel. |
+| rTwig (v1.1) | `uv run treewm rtwig --rscript <Rscript> --r-libs <R library>` | Corrects the Belgian QSM twig radii with the rTwig R package and computes the corrected QSM features. Needs R with rTwig 1.4. |
 | Evaluate | `uv run treewm evaluate` | Runs the three cross-validated v1 experiments and writes `metrics.csv`, `tables.md` and the measured-vs-predicted figures into `experiments/v1-residuals/`. |
+| Evaluate v1.1 | `uv run treewm evaluate-rtwig` | Reruns the v1 Belgian models with TreeQSM, rTwig and combined QSM features; writes into `experiments/v1.1-rtwig/`. |
 | Figures | `uv run treewm figures` | Draws the explanatory figures in the report (example tree, geometry checks, ablation, per species and per study). |
 | Train | `uv run treewm train` | Fits the deployable bundle on all Belgian trees with scan-only inputs. |
 | Predict | `uv run treewm predict tree.laz --species "Pinus sylvestris" [--qsm tree.mat]` | JSON with DBH, height, lean, crown offset, stem volume, baseline and corrected volume/mass with 90 % intervals, extrapolation flags, and (with a QSM) centre of mass and base moments. |
@@ -94,7 +103,7 @@ experiments/  one folder per experiment: README, config.yaml, results, figures
 configs/      datasets.yaml (download manifest), allometry/published.yaml
 treewm/io/    downloads, archive extraction, point cloud and TreeQSM readers
 treewm/data/  schema (quantity registry) and per-dataset ingest
-treewm/qsm/   cylinder metrics, centre of mass, base moments, GraphML → cylinders
+treewm/qsm/   cylinder metrics, centre of mass, base moments, GraphML → cylinders, rTwig correction (R)
 treewm/geometry/  stem tracking, crown metrics, feature pipeline
 treewm/baselines/, treewm/models/  allometry, feature sets, residual learners
 treewm/eval/  CV schemes, nested CV engine, metrics, result tables, report figures

@@ -1,4 +1,4 @@
-"""treewm command line: download | ingest | features | evaluate | figures | train | predict."""
+"""treewm command line: download | ingest | features | rtwig | evaluate | figures | train | predict."""
 from __future__ import annotations
 
 from typing import Optional
@@ -39,6 +39,23 @@ def features(datasets: str = typer.Option("belgian,biodiv", help="Comma-separate
 
 
 @app.command()
+def rtwig(workers: int = typer.Option(8, help="Parallel R processes"),
+          rscript: Optional[str] = typer.Option(None, help="Path to Rscript (default: TREEWM_RSCRIPT or PATH)"),
+          r_libs: Optional[str] = typer.Option(None, help="R package library holding rTwig (default: R_LIBS_USER)"),
+          force: bool = typer.Option(False, help="Rerun rTwig for trees that already have corrected cylinders")):
+    """Correct the Belgian QSM twig radii with rTwig and compute the corrected QSM features (v1.1)."""
+    import pandas as pd
+
+    from treewm.geometry.build import load_features
+    from treewm.paths import PROCESSED
+    from treewm.qsm.rtwig import build
+    t = pd.read_parquet(PROCESSED / "trees.parquet")
+    t = t[(t.dataset_id == "belgian") & t.qsm_path.notna()]
+    df = build(t, load_features("belgian"), workers, rscript, r_libs, force)
+    print(df.groupby("twig_source")[["twig_radius_mm"]].first())
+
+
+@app.command()
 def evaluate(experiments: str = typer.Option("belgian,ceda,biodiv", help="Comma-separated experiments"),
              out: str = typer.Option("experiments/v1-residuals", help="Report folder (metrics.csv, tables.md, figures)"),
              jobs: int = typer.Option(-1, help="Parallel worker processes (-1 = all cores, 1 = serial)")):
@@ -62,6 +79,22 @@ def evaluate(experiments: str = typer.Option("belgian,ceda,biodiv", help="Comma-
     OUTPUTS.mkdir(exist_ok=True)
     preds.to_parquet(pred_path, index=False)
     print(write_report(preds, metrics, ROOT / out))
+
+
+@app.command("evaluate-rtwig")
+def evaluate_rtwig(out: str = typer.Option("experiments/v1.1-rtwig", help="Experiment folder"),
+                   jobs: int = typer.Option(-1, help="Parallel worker processes (-1 = all cores, 1 = serial)")):
+    """Run experiment v1.1: the v1 Belgian models with TreeQSM vs rTwig-corrected QSM features."""
+    from treewm import experiments as ex
+    from treewm.eval.report_rtwig import volume_check, write
+    from treewm.geometry.build import load_features
+    from treewm.paths import OUTPUTS, ROOT
+    preds, metrics = ex.run_rtwig(n_jobs=jobs)
+    OUTPUTS.mkdir(exist_ok=True)
+    preds.to_parquet(OUTPUTS / "predictions_v1.1.parquet", index=False)
+    W, T = ex._tables()
+    vol = volume_check(W, load_features("belgian"), load_features("belgian_rtwig"), T)
+    print(write(preds, metrics, vol, ROOT / out))
 
 
 @app.command()

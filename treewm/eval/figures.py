@@ -19,7 +19,7 @@ from matplotlib.collections import LineCollection
 from matplotlib.lines import Line2D
 
 from treewm.eval import style as st
-from treewm.paths import LABELS, OUTPUTS, PROCESSED, ROOT
+from treewm.paths import LABELS, OUTPUTS, PROCESSED, V1
 
 plt = st.plt
 
@@ -373,7 +373,7 @@ def fig_ceda(preds: pd.DataFrame, path: Path) -> pd.DataFrame:
     return tab.round(1)
 
 
-def build(out: Path = ROOT / "reports" / "v1", log=print) -> list[Path]:
+def build(out: Path = V1, log=print) -> list[Path]:
     st.apply()
     fig_dir = out / "figures"
     fig_dir.mkdir(parents=True, exist_ok=True)

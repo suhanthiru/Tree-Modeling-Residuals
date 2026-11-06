@@ -1,4 +1,4 @@
-# v1 experiment definition. All models predict log(target); see treewm/models/residual.py.
+# v1 experiment definition (experiments/v1-residuals). All models predict log(target); see treewm/models/residual.py.
 interval_level: 0.90
 
 xgboost:

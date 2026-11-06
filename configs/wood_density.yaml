@@ -1,0 +1,36 @@
+# Published basic wood density of stemwood: dry mass per fresh (green) volume, kg/m3.
+# Used by treewm/baselines/density.py. Not fitted to any of our trees.
+source: >-
+  IPCC Good Practice Guidance for LULUCF (2003), table 3A.1.9-1, as reproduced in FAO Global
+  Forest Resources Assessment 2005, guidelines for country reporting, appendix 5, table 5.2
+  (https://www.fao.org/4/j2132e/J2132e16.htm). Row source for every value below: Dietz (1975),
+  Holz Roh- Werkstoff 33: 135-141.
+units: kg/m3 (table values in t/m3 x 1000)
+note: >-
+  Rows are species where the table lists the species, otherwise its genus row. Transcribed from
+  the FAO page; check against it before adding rows.
+kg_m3:
+  Abies: 400
+  Acer: 520
+  Alnus: 450
+  Betula: 510
+  Carpinus betulus: 630
+  Castanea sativa: 480
+  Fagus sylvatica: 580
+  Fraxinus: 570
+  Juglans: 530
+  Larix decidua: 460
+  Larix kaempferi: 490
+  Picea abies: 400
+  Picea sitchensis: 400
+  Pinus pinaster: 440
+  Pinus strobus: 320
+  Pinus sylvestris: 420
+  Populus: 350
+  Prunus: 490
+  Pseudotsuga menziesii: 450
+  Quercus: 580
+  Salix: 450
+  Thuja plicata: 310
+  Tilia: 430
+  Tsuga: 420

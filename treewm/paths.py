@@ -8,6 +8,9 @@ RAW = DATA / "raw"
 PROCESSED = DATA / "processed"
 LABELS = DATA / "labels"
 OUTPUTS = ROOT / "outputs"
+EXPERIMENTS = ROOT / "experiments"
+V1 = EXPERIMENTS / "v1-residuals"  # config, report, tables and figures of the v1 experiment
+V1_1 = EXPERIMENTS / "v1.1-rtwig"  # v1 Belgian experiment with rTwig-corrected QSMs
 
 
 def raw_dir(dataset_id: str) -> Path:

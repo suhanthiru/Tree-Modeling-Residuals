@@ -31,3 +31,16 @@ def by_group(pred: pd.DataFrame, group_col: str) -> pd.DataFrame:
     for g, d in pred.groupby(group_col):
         rows.append({group_col: g, **summarize(d["y"], d["yhat"], d["lo"], d["hi"])})
     return pd.DataFrame(rows)
+
+
+def paired_bootstrap(a, b, y, n: int = 5000, seed: int = 0) -> dict:
+    """Error of model b minus error of model a on the same trees: mean of |b/y - 1| - |a/y - 1|
+    in percentage points, with a 95 % bootstrap interval over trees. Trees are resampled
+    independently, which ignores that trees of one site share errors."""
+    y = np.asarray(y, float)
+    diff = 100 * (np.abs(np.asarray(b, float) / y - 1) - np.abs(np.asarray(a, float) / y - 1))
+    rng = np.random.default_rng(seed)
+    bs = diff[rng.integers(0, len(diff), (n, len(diff)))].mean(axis=1)
+    lo, hi = np.percentile(bs, [2.5, 97.5])
+    return {"diff_pp": float(diff.mean()), "lo": float(lo), "hi": float(hi), "a_better": int((diff > 0).sum()),
+            "n": len(diff)}

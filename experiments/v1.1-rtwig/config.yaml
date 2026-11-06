@@ -1,0 +1,20 @@
+# v1.1 experiment definition (experiments/v1.1-rtwig). Reuses the v1 Belgian folds, targets,
+# learners and XGBoost settings from ../v1-residuals/config.yaml and changes one thing: where
+# the QSM structure features (feature set E and the QSM baselines) come from.
+parent: v1-residuals
+
+rtwig:
+  package_version: "1.4.0"      # checked against the version R reports, recorded per tree
+  treeqsm_version: "2.3.0"
+  twig_radius: species          # rTwig's twigs table; "<Genus> spp." when the species is not listed
+  smooth: false                 # rTwig's default smoothing also moves cylinders; v1.1 changes radii only
+
+qsm_sources:
+  treeqsm: TreeQSM radii, as in v1
+  rtwig: rTwig-corrected radii in place of TreeQSM's
+  both: TreeQSM features plus corrected branch volume and the size of the correction
+
+belgian:
+  targets: [fresh_mass_total_kg, agb_dry_kg, volume_total_m3, volume_stem_m3]
+  scenarios: [inventory, scan]
+  schemes: [leave_one_site_out, within_site_5fold]
